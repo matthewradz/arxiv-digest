@@ -1,0 +1,22 @@
+# Your personal config. The repo ships config.default.toml; the app copies it to
+# config.toml on first run, and your edits stay local.
+config.toml
+config.toml.backup
+config.toml.new
+
+# Everything the tool produces about you
+picks.jsonl
+preferences.md
+config-suggestions.md
+profile-suggestions.toml
+library.md
+digests/
+runs/
+logs/
+.setup-done
+
+# Build output
+*.zip
+__pycache__/
+*.py[cod]
+.DS_Store
