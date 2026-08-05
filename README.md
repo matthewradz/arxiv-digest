@@ -193,25 +193,73 @@ rather than recommended.
 To change the digest's voice, priorities or format, edit **`prompt.md`** — it is
 plain English and is where the "who you are writing for" instructions live.
 
+## How it works
+
+The whole thing is one pipeline. Nothing is a framework, nothing is generated,
+and no step knows about any step but the next one.
+
+```
+arXiv RSS  ──►  fetch.py  ──►  runs/DATE/brief.md  ──►  model CLI  ──►  digests/DATE.md
+                   ▲                                    (claude|codex)        │
+                   │                                                          ▼
+             config.toml ◄── profile.py (OpenAlex)                       record.py
+             preferences.md ◄── learn.py ◄── picks.jsonl ◄── pick.py ◄── library.md
+```
+
+1. **`fetch.py`** downloads the RSS feed for each section in `feeds`, parses every
+   paper, and scores it: points per matched author, points per topic keyword
+   (doubled for title hits), bonuses for reviews and cross-lists. It writes the
+   top ~34 with full abstracts into `runs/DATE/brief.md`, along with the reader
+   description, the learned preferences, and the bare titles of everything else.
+   **All the arithmetic lives here. No model is involved.**
+2. **`run.sh`** pipes that briefing into whichever model CLI is installed and
+   captures the result as `digests/DATE.md`. **All the judgement lives here** —
+   which five papers, what to say, what the trends are — and it is steered
+   entirely by `prompt.md`, which is plain English you can edit.
+3. **`record.py`** appends every surfaced paper to `library.md` as a checklist,
+   and warns if the digest referenced a paper that wasn't in the announcement.
+4. **`pick.py`** records what you marked as wanted into `picks.jsonl`, keeping
+   `library.md`, the app and the command line in sync.
+5. **`learn.py`** compares picks against everything shown and emits a statistics
+   report; `learn.sh` has the model turn it into `preferences.md`, which step 1
+   then injects into every future briefing. That's the feedback loop.
+6. **`app.py`** is a local web server that does none of the above itself — it
+   shells out to `run.sh`, `learn.sh` and `profile.py` and renders their output.
+   Delete it and the shell tools still work identically.
+
+Two deliberate properties: **the scoring never decides anything** (it only
+narrows 150 papers to 34, generously, so keyword false positives get discarded by
+the model rather than recommended), and **every artefact is plain text you can
+read** — including `brief.md`, the exact input the digest was written from.
+
 ## What is where
 
-| file | what it is |
-|---|---|
-| `config.default.toml` | the defaults a fresh install starts from (in the repo) |
-| `config.toml` | your copy — authors, topics, settings. **The file to edit.** Never committed. |
-| `prompt.md` | the instructions used to write the digest |
-| `app.py` | the reader; `install-app.sh` wraps it as an app |
-| `run.sh` / `learn.sh` | the command-line equivalents |
-| `package.sh` | builds a zip to send to another Mac |
-| `profile.py` | builds author/topic lists from a researcher's real corpus |
-| `_engine.sh` | picks Claude Code or Codex CLI, whichever is installed |
-| `digests/DATE.md` | your nightly digests |
-| `library.md` | every paper surfaced; tick what you download |
-| `preferences.md` | learned taste, written by `learn.sh`, read every night |
-| `config-suggestions.md` | proposed config edits from `learn.sh`, for you to review |
-| `picks.jsonl` | your download history — the training data |
-| `runs/DATE/` | the raw feed, scores, and the briefing for that night |
-| `logs/` | what happened on unattended runs |
+| file | lines | what it is |
+|---|---|---|
+| `config.default.toml` | ~250 | the defaults a fresh install starts from (in the repo) |
+| `config.toml` | — | **your copy — the only file you need to edit.** Never committed |
+| `prompt.md` | ~120 | what the digest should say and how briefly. Plain English |
+| `learn_prompt.md` | ~60 | how to turn your picks into `preferences.md` |
+| `fetch.py` | ~500 | feed parsing, name matching, scoring, briefing. No model |
+| `run.sh` | ~130 | the nightly pipeline: fetch → model → digest → library |
+| `app.py` | ~1100 | local reader: setup wizard, digest page, pick buttons |
+| `pick.py` | ~200 | records what you wanted; the one source of truth for picks |
+| `record.py` | ~120 | writes `library.md` from a digest |
+| `learn.py` | ~200 | the shown-vs-picked statistics report |
+| `learn.sh` | ~80 | runs the report through the model into `preferences.md` |
+| `profile.py` | ~380 | builds author/topic lists from a real corpus (OpenAlex) |
+| `_engine.sh` | ~90 | picks Claude Code or Codex CLI, whichever is installed |
+| `_python.sh` | ~35 | finds a Python 3.11+ (macOS ships 3.9) |
+| `install-app.sh` | ~90 | builds the clickable `arXiv Digest.app` |
+| `install-schedule.sh` | ~110 | the weeknight launchd job |
+| `package.sh` | ~110 | builds the shareable zip |
+| `Install.command` | ~160 | double-clickable installer inside the zip |
+| `test-fresh.sh` | ~100 | stash your data, try the first-run flow, restore |
+
+Produced at runtime, none of it committed: `digests/DATE.md`, `library.md`,
+`picks.jsonl`, `preferences.md`, `config-suggestions.md`,
+`profile-suggestions.toml`, `runs/DATE/` (raw feed, scores, briefing) and
+`logs/`.
 
 ## Where your data lives
 

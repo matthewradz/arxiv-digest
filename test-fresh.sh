@@ -22,6 +22,19 @@ ITEMS=(config.toml picks.jsonl preferences.md config-suggestions.md
        profile-suggestions.toml library.md .setup-done digests runs logs
        config.toml.backup)
 
+# Matching only "$DIR/app.py" misses a reader started as `python3 app.py` from
+# inside the folder, which then keeps serving stale state. Match both, but stay
+# scoped to this directory so we never kill someone else's unrelated app.py.
+stop_readers() {
+  pkill -f "$DIR/app.py" 2>/dev/null
+  for pid in $(pgrep -f '[a]pp\.py' 2>/dev/null); do
+    if [[ "$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | tail -1)" == "n$DIR" ]]; then
+      kill "$pid" 2>/dev/null
+    fi
+  done
+  return 0
+}
+
 case "${1:-}" in
 start)
   if [[ -d "$STASH" ]]; then
@@ -44,7 +57,7 @@ start)
   echo
   echo "When you are done:  ./test-fresh.sh restore"
   echo
-  pkill -f "$DIR/app.py" 2>/dev/null
+  stop_readers
   rm -f runs/.app-port
   open -a "arXiv Digest" 2>/dev/null \
     || echo "Open the app yourself, or run: python3 app.py"
@@ -55,7 +68,7 @@ restore)
     echo "Nothing is stashed." >&2
     exit 1
   fi
-  pkill -f "$DIR/app.py" 2>/dev/null
+  stop_readers
   sleep 1
   # Throw away whatever the test run produced, then put the originals back.
   for i in "${ITEMS[@]}"; do

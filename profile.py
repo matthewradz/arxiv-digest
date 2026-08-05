@@ -46,11 +46,8 @@ def get(path, **params):
 
 
 def scholar_hint(text):
-    """Accept a Google Scholar URL and pull a usable name hint out of it."""
-    if "scholar.google" not in text:
-        return text, None
-    m = re.search(r"[?&]user=([\w-]+)", text)
-    return None, m.group(1) if m else None
+    """A Scholar URL carries no name, so there is nothing to look up from it."""
+    return None if "scholar.google" in text else text
 
 
 def find_authors(name, limit=5):
@@ -74,23 +71,19 @@ def fetch_corpus(author_id, max_works=400):
     coauthors = Counter()
     coauthor_display = {}
     topics = Counter()
-    concepts = Counter()
     title_words = Counter()
-    years = Counter()
     seen = 0
     cursor = "*"
 
     while seen < max_works and cursor:
         page = get("works", filter=f"author.id:{author_id}",
                    per_page=100, cursor=cursor,
-                   select="title,publication_year,topics,concepts,authorships")
+                   select="title,topics,authorships")
         results = page.get("results", [])
         if not results:
             break
         for w in results:
             seen += 1
-            if w.get("publication_year"):
-                years[w["publication_year"]] += 1
             for auth in w.get("authorships", []):
                 person = auth.get("author") or {}
                 pid = (person.get("id") or "").rsplit("/", 1)[-1]
@@ -100,16 +93,13 @@ def fetch_corpus(author_id, max_works=400):
                 coauthor_display.setdefault(pid, person.get("display_name", ""))
             for t in (w.get("topics") or [])[:3]:
                 topics[t["display_name"]] += 1
-            for c in (w.get("concepts") or []):
-                if c.get("level", 0) >= 1 and c.get("score", 0) > 0.3:
-                    concepts[c["display_name"]] += 1
             for word in extract_terms(w.get("title") or ""):
                 title_words[word] += 1
         cursor = (page.get("meta") or {}).get("next_cursor")
 
     return {"works_seen": seen, "coauthors": coauthors,
             "coauthor_display": coauthor_display, "topics": topics,
-            "concepts": concepts, "title_terms": title_words, "years": years}
+            "title_terms": title_words}
 
 
 STOP = set("""a an the of and or in on for with to from at by as is are be been
@@ -153,7 +143,7 @@ def extract_terms(title):
     return terms
 
 
-def build_suggestions(prof, corpus, min_coauthor=3, n_topics=14, n_terms=40,
+def build_suggestions(corpus, min_coauthor=3, n_topics=14, n_terms=40,
                       max_coauthors=40):
     # Cap the list: a prolific author has hundreds of coauthors, and the tail is
     # peripheral collaborators whose own papers you would not want surfaced.
@@ -296,7 +286,7 @@ def main():
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
-    name, scholar_id = scholar_hint(args.who)
+    name = scholar_hint(args.who)
     if name is None:
         print("A Google Scholar URL does not contain the person's name, and "
               "Scholar blocks automated lookups.\nRun it with the name instead, "
@@ -335,7 +325,7 @@ def main():
         print(f"Could not read the corpus: {exc}", file=sys.stderr)
         return 2
 
-    sug = build_suggestions(prof, corpus)
+    sug = build_suggestions(corpus)
 
     if args.json:
         print(json.dumps({

@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import fetch  # for pretty_name()
+import pick   # for marked_ids()
 
 HOME = Path(__file__).resolve().parent
 LIBRARY = HOME / "library.md"
@@ -29,14 +30,6 @@ only training signal, so they matter more than they look.
 `[T]` = the digest put it in tonight's five.  `[A]` = "also worth a look".
 `[S]` = it cleared the prefilter but the digest did not recommend it.
 """
-
-
-def read_marked_ids(digest_text, tag):
-    m = re.search(rf"<!--\s*{tag}:\s*([^>]*?)-->", digest_text)
-    if not m:
-        return []
-    raw = m.group(1)
-    return [i for i in re.findall(r"\d{4}\.\d{4,5}", raw)]
 
 
 def main():
@@ -56,8 +49,8 @@ def main():
     shortlisted = [c["id"] for c in json.loads(
         cand_file.read_text(encoding="utf-8"))["candidates"]]
 
-    top5 = read_marked_ids(text, "TOP5")
-    also = read_marked_ids(text, "ALSO")
+    top5 = pick.marked_ids(text, "TOP5")
+    also = pick.marked_ids(text, "ALSO")
 
     # Guard against the digest citing a paper that was not in the announcement.
     # Only ids used as the digest's own references count — ids appearing inside

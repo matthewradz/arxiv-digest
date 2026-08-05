@@ -43,8 +43,8 @@ topological phases, active matter, and disorder.
 # ============================================================================
 #  AUTHORS — people whose papers you want to see regardless of topic
 #
-#  Write names naturally: "Leo Radzihovsky", "L. Radzihovsky", and
-#  "Radzihovsky, Leo" all match. Matching uses LAST NAME + FIRST INITIAL, so
+#  Write names naturally: "Ada Lovelace", "A. Lovelace", and
+#  "Lovelace, Ada" all match. Matching uses LAST NAME + FIRST INITIAL, so
 #  common surnames can occasionally false-positive; the digest always shows
 #  which name matched so you can spot it. Delete anyone you don't care about —
 #  a shorter, sharper list gives better digests than a long one.
@@ -119,11 +119,12 @@ names = [
   "Georg Bruun", "Eugene Demler", "Mikhail Lukin", "Immanuel Bloch",
   "Randall Hulet", "Peter Zoller", "Monika Aidelsburger",
 
-  # --- Boulder / close collaborators ---
-  # (Hermele, Gurarie, Nandkishore and Toner are listed under their topics above.)
-  "Leo Radzihovsky", "Andrew Lucas", "Joseph Thywissen", "Ivan Smalyukh",
-  "Noel Clark", "Matthew Glaser", "Meng Cheng", "Paul Goldbart",
-  "Daniel Arovas", "Karl Saunders",
+  # --- soft matter / liquid crystals, continued ---
+  "Ivan Smalyukh", "Noel Clark", "Paul Goldbart", "Daniel Arovas",
+  "Andrew Lucas", "Meng Cheng",
+
+  # Add your own people here. Setup step 2 ("whose work should it follow?")
+  # appends a researcher's real coauthors automatically.
 ]
 
 

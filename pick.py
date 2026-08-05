@@ -31,6 +31,12 @@ def normalise(raw):
     return m.group(0) if m else None
 
 
+def marked_ids(digest_text, tag):
+    """Read the '<!-- TOP5: ... -->' / '<!-- ALSO: ... -->' footer of a digest."""
+    m = re.search(rf"<!--\s*{tag}:\s*([^>]*?)-->", digest_text)
+    return re.findall(ID_RE, m.group(1)) if m else []
+
+
 def load_runs():
     """Map arxiv id -> (listing_date, item, how_it_was_surfaced)."""
     index = {}
@@ -46,10 +52,8 @@ def load_runs():
         top5, also = set(), set()
         if digest.exists():
             text = digest.read_text(encoding="utf-8")
-            for tag, store in (("TOP5", top5), ("ALSO", also)):
-                m = re.search(rf"<!--\s*{tag}:\s*([^>]*?)-->", text)
-                if m:
-                    store.update(re.findall(ID_RE, m.group(1)))
+            top5.update(marked_ids(text, "TOP5"))
+            also.update(marked_ids(text, "ALSO"))
         for it in data["items"]:
             if not it["id"]:
                 continue

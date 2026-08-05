@@ -8,7 +8,6 @@ Usage:  python3 learn.py
 """
 
 import json
-import re
 import tomllib
 from collections import Counter
 from pathlib import Path
