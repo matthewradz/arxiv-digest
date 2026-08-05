@@ -153,12 +153,17 @@ def extract_terms(title):
     return terms
 
 
-def build_suggestions(prof, corpus, min_coauthor=3, n_topics=14, n_terms=40):
+def build_suggestions(prof, corpus, min_coauthor=3, n_topics=14, n_terms=40,
+                      max_coauthors=40):
+    # Cap the list: a prolific author has hundreds of coauthors, and the tail is
+    # peripheral collaborators whose own papers you would not want surfaced.
     coauthors = []
-    for pid, n in corpus["coauthors"].most_common(120):
+    for pid, n in corpus["coauthors"].most_common(300):
         name = corpus["coauthor_display"].get(pid, "")
         if n >= min_coauthor and name and fetch.name_key(name):
             coauthors.append((fetch.pretty_name(name), n))
+        if len(coauthors) >= max_coauthors:
+            break
 
     topics = [(t, n) for t, n in corpus["topics"].most_common(n_topics) if n >= 2]
 
