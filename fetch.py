@@ -86,7 +86,7 @@ def deaccent(text: str) -> str:
 def name_key(name: str):
     """
     Reduce a personal name to (lastname, first-initial) so that
-    'Leo Radzihovsky', 'L. Radzihovsky' and 'Radzihovsky, Leo' all agree.
+    'Ada Lovelace', 'A. Lovelace' and 'Lovelace, Ada' all agree.
     Returns None if the name has no usable structure.
     """
     name = deaccent(name).strip()
@@ -312,7 +312,7 @@ def one_line_authors(item, limit=6):
     return ", ".join(a[:limit]) + f", +{len(a) - limit} more"
 
 
-def write_brief(path, listing_date, items, candidates, cfg, prefs):
+def write_brief(path, listing_date, items, candidates, cfg, prefs, reader):
     counts = {}
     for it in items:
         counts[it["announce"]] = counts.get(it["announce"], 0) + 1
@@ -329,6 +329,12 @@ def write_brief(path, listing_date, items, candidates, cfg, prefs):
              "generous and makes no judgement about quality. Use the abstracts "
              "below to decide what actually matters.")
     L.append("")
+
+    if reader:
+        L.append("## Who this is for")
+        L.append("")
+        L.append(reader.strip())
+        L.append("")
 
     if prefs:
         L.append("## Learned preferences (from papers actually downloaded)")
@@ -480,6 +486,7 @@ def main():
 
     prefs_file = HOME / "preferences.md"
     prefs = prefs_file.read_text(encoding="utf-8") if prefs_file.exists() else ""
+    reader = (conf.get("reader", {}) or {}).get("description", "").strip()
 
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "items.json").write_text(
@@ -490,7 +497,8 @@ def main():
                     "shown": [c["id"] for c in candidates],
                     "candidates": candidates}, indent=1, ensure_ascii=False),
         encoding="utf-8")
-    write_brief(run_dir / "brief.md", listing_date, items, candidates, cfg, prefs)
+    write_brief(run_dir / "brief.md", listing_date, items, candidates, cfg,
+                prefs, reader)
 
     n_auth = sum(1 for c in candidates if c["matched_authors"])
     print(f"LISTING_DATE {listing_date}")

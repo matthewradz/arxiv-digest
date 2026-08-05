@@ -148,8 +148,8 @@ Rather than guessing an author list, point it at a researcher and let it read
 their real publication record:
 
 ```bash
-python3 profile.py "Leo Radzihovsky"           # show what it would add
-python3 profile.py "Leo Radzihovsky" --apply   # merge it into config.toml
+python3 profile.py "Your Name"           # show what it would add
+python3 profile.py "Your Name" --apply   # merge it into config.toml
 ```
 
 Or click **Tune from a researcher** at the bottom of the reader.

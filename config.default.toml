@@ -25,6 +25,22 @@ cross_list_bonus = 0.5        # points per additional non-cond-mat category (int
 
 
 # ============================================================================
+#  READER — who the digest is written for. This is injected into the briefing
+#  every night, and it is the single biggest lever on what gets picked.
+#  Setup step 2 fills it in from a researcher's publication record, or write
+#  your own: field, subfields, and what you care about.
+# ============================================================================
+
+[reader]
+description = """
+A condensed matter theorist with broad interests across soft and quantum matter:
+elasticity and membranes, liquid crystals, critical phenomena and the
+renormalization group, gauge theories and fractons, superconductivity and
+superfluidity, spin liquids and quantum magnetism, the quantum Hall effect,
+topological phases, active matter, and disorder.
+"""
+
+# ============================================================================
 #  AUTHORS — people whose papers you want to see regardless of topic
 #
 #  Write names naturally: "Leo Radzihovsky", "L. Radzihovsky", and

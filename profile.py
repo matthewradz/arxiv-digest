@@ -2,9 +2,9 @@
 """
 Build an author list and topic list from a researcher's actual publication record.
 
-    python3 profile.py "Leo Radzihovsky"
-    python3 profile.py "Leo Radzihovsky" --apply      # write it into config.toml
-    python3 profile.py --list "Leo Radzihovsky"       # just show the matches
+    python3 profile.py "Ada Lovelace"
+    python3 profile.py "Ada Lovelace" --apply      # write it into config.toml
+    python3 profile.py --list "Ada Lovelace"       # just show the matches
 
 Instead of guessing who and what to track, this reads the person's own corpus and
 takes the frequent coauthors and the recurring subject areas straight from it.
@@ -214,7 +214,7 @@ def render_toml(prof, corpus, sug):
     return "\n".join(L)
 
 
-def apply_to_config(sug, prof):
+def apply_to_config(sug, prof, corpus_size=0):
     """Merge suggestions into config.toml, keeping a backup. Never removes."""
     cfg = HOME / "config.toml"
     if not cfg.exists():
@@ -255,6 +255,20 @@ def apply_to_config(sug, prof):
         text = text[:m.end(2)] + block.rstrip("\n") + text[m.end(2):]
         added_authors = len(fresh)
 
+    # The reader description is the biggest single lever on what gets picked,
+    # so set it from the profile too rather than leaving the generic default.
+    areas = "; ".join(t for t, _ in sug["topics"][:8])
+    where = f", {prof['institution']}" if prof["institution"] else ""
+    desc = (f"\n{prof['name']}{where}. Across {corpus_size} indexed papers, "
+            f"publishes on: {areas}.\n"
+            f"Judge papers by whether this person would spend an evening on "
+            f"them.\n")
+    m = re.search(r'(\[reader\]\s*\ndescription\s*=\s*""")(.*?)(""")', text, re.S)
+    if m:
+        text = text[:m.end(1)] + desc + text[m.start(3):]
+    else:
+        text = (f'\n[reader]\ndescription = """{desc}"""\n\n') + text
+
     if sug["terms"] and "own-corpus" not in text:
         group = ["", "", "[[topics]]", 'name = "own-corpus"',
                  "# Phrases taken from the titles of his own papers.",
@@ -286,7 +300,7 @@ def main():
     if name is None:
         print("A Google Scholar URL does not contain the person's name, and "
               "Scholar blocks automated lookups.\nRun it with the name instead, "
-              "e.g.  python3 profile.py \"Leo Radzihovsky\"", file=sys.stderr)
+              "e.g.  python3 profile.py \"Ada Lovelace\"", file=sys.stderr)
         return 2
 
     try:
@@ -339,7 +353,7 @@ def main():
     out.write_text(toml_text, encoding="utf-8")
 
     if args.apply:
-        n_auth, n_terms = apply_to_config(sug, prof)
+        n_auth, n_terms = apply_to_config(sug, prof, corpus['works_seen'])
         print(f"\nconfig.toml updated: {n_auth} new authors, "
               f"{n_terms} keyword phrases.")
         print("Previous version saved as config.toml.backup")

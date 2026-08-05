@@ -95,7 +95,7 @@ if [[ -z "${SKIP:-}" ]]; then
   mkdir -p "$DEST"/{runs,digests,logs}
   for f in fetch.py record.py pick.py learn.py app.py profile.py \
            _python.sh _engine.sh \
-           run.sh learn.sh install-app.sh install-schedule.sh package.sh \
+           run.sh learn.sh install-app.sh install-schedule.sh package.sh test-fresh.sh \
            config.default.toml prompt.md learn_prompt.md README.md; do
     [[ -f "$f" ]] && cp "$f" "$DEST/$f"
   done

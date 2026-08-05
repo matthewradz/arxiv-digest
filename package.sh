@@ -23,7 +23,7 @@ mkdir -p "$STAGE"/{digests,runs,logs}
 
 for f in fetch.py record.py pick.py learn.py app.py profile.py \
          _python.sh _engine.sh \
-         run.sh learn.sh install-app.sh install-schedule.sh package.sh \
+         run.sh learn.sh install-app.sh install-schedule.sh package.sh test-fresh.sh \
          config.default.toml prompt.md learn_prompt.md README.md Install.command; do
   if [[ -f "$DIR/$f" ]]; then
     cp "$DIR/$f" "$STAGE/$f"

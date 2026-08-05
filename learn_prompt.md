@@ -1,5 +1,6 @@
-You are tuning a nightly arXiv cond-mat digest to one reader's taste — Leo
-Radzihovsky, a condensed matter theorist.
+You are tuning a nightly arXiv digest to one reader's taste. The report on stdin
+describes who they are; if it does not, assume an established condensed matter
+theorist.
 
 On stdin you get a statistics report comparing what the digest surfaced against
 which papers he actually downloaded, plus the current learned-preferences file if

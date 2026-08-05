@@ -669,7 +669,7 @@ literature. Google Scholar has no API and blocks automated access, so a Scholar
 link can't be read directly — use the name and you get the same corpus.</p>
 
 <div class="lookup">
-  <input id="who" type="text" placeholder="e.g. Leo Radzihovsky" autofocus>
+  <input id="who" type="text" placeholder="a researcher's name" autofocus>
   <button class="act" id="go">Look up</button>
 </div>
 <div id="out"></div>
@@ -772,7 +772,7 @@ defaults instead.
 rather than a Scholar link — the corpus comes from OpenAlex, which covers the
 same literature.</i></p>
 <div class="lookup">
-  <input id="who" type="text" placeholder="e.g. Leo Radzihovsky">
+  <input id="who" type="text" placeholder="a researcher's name">
   <button class="act" id="go">Look up</button>
 </div>
 <div id="out"></div>
