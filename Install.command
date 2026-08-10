@@ -127,15 +127,25 @@ fi
 echo
 
 # --- schedule --------------------------------------------------------------
-bold "Run it automatically?"
-echo "  arXiv publishes Monday to Friday. If you say yes, the digest is built"
-echo "  quietly at 9pm on weeknights, so it is already waiting when you look."
-read -r -p "  Set that up? [Y/n] " ans
+bold "How should it run?"
+echo
+echo "  Either way, opening the app always builds the digest if it is not"
+echo "  already there. The only question is whether it also runs on its own."
+echo
+echo "    automatic  — built quietly at 9pm Mon-Fri, so it is waiting for you,"
+echo "                 with a notification when it is ready. Opening the app"
+echo "                 is then instant."
+echo "    on demand  — nothing runs in the background. Opening the app builds"
+echo "                 that evening's digest, which takes 2-3 minutes."
+echo
+read -r -p "  Set up the automatic 9pm run? [Y/n] " ans
 case "${ans:-y}" in
-  [nN]*) dim "  Skipped. You can do it later: $DEST/install-schedule.sh" ;;
+  [nN]*) dim "  On demand only. Turn it on later with:"
+         dim "    $DEST/install-schedule.sh" ;;
   *)     if (cd "$DEST" && ./install-schedule.sh 21 0 >/dev/null 2>&1); then
            ok "scheduled for 21:00, Monday to Friday"
-           dim "  change it later with: $DEST/install-schedule.sh 20 30"
+           dim "  change the time:  $DEST/install-schedule.sh 20 30"
+           dim "  turn it off:      $DEST/install-schedule.sh --remove"
          else
            bad "could not schedule it; run.sh and the app still work"
          fi ;;

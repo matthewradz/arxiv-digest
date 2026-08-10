@@ -62,16 +62,36 @@ Takes a couple of minutes. The digest lands in `digests/YYYY-MM-DD.md`, named
 for the arXiv listing date. Running twice on the same listing does nothing —
 it will not rebuild or overwrite unless you pass `--force`.
 
-To have it run on its own every weeknight at 9pm, with a notification when the
-digest is ready:
+## Running it automatically
+
+Opening the app always builds the digest if it isn't already there, so automatic
+running is optional — it only decides whether you wait 2-3 minutes or find it
+ready.
 
 ```bash
-./install-schedule.sh          # or: ./install-schedule.sh 20 30  for 20:30
-./install-schedule.sh --remove # to stop
+./install-schedule.sh           # every weeknight at 21:00
+./install-schedule.sh 20 30     # or 20:30
+./install-schedule.sh --remove  # back to on-demand only
 ```
 
-arXiv announces Sunday through Thursday evening, producing the Monday-to-Friday
-listings, so nothing is scheduled at the weekend.
+It installs a launchd agent (`~/Library/LaunchAgents/com.arxivdigest.nightly.plist`)
+that runs `run.sh --notify` at that time Monday to Friday, and posts a macOS
+notification when the digest is ready. arXiv announces Sunday through Thursday
+evening, which produces the Monday-to-Friday listings, so nothing is scheduled at
+the weekend. If a run finds a listing it has already digested it exits quietly.
+
+Unattended output goes to `logs/scheduler.out.log` and `logs/DATE.log`. To test
+it without waiting for 21:00:
+
+```bash
+launchctl start com.arxivdigest.nightly   # then watch logs/scheduler.out.log
+```
+
+**One gotcha worth knowing**, since it cost a silent failure here: launchd does
+not set `USER` or `LOGNAME`, and without `USER` the model CLI cannot find its
+stored login and dies with *"Not logged in · Please run /login"* — which looks
+like an auth problem but is a missing environment variable. `install-schedule.sh`
+sets them in the plist. If you ever hand-write the plist, don't drop them.
 
 ## Which sections it reads
 

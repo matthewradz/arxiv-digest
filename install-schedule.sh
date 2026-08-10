@@ -69,6 +69,13 @@ else ENGINE_VAR=CODEX_BIN; fi
         <key>PATH</key>
         <string>$ENGINE_DIR:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>HOME</key><string>$HOME</string>
+        <!-- USER and LOGNAME are essential, not cosmetic. launchd does not set
+             them, and without USER the model CLI cannot find its stored login
+             and fails with "Not logged in · Please run /login" — a scheduled
+             run that looks like an auth problem but is a missing env var. -->
+        <key>USER</key><string>$(id -un)</string>
+        <key>LOGNAME</key><string>$(id -un)</string>
+        <key>SHELL</key><string>${SHELL:-/bin/bash}</string>
         <key>PYTHON</key><string>$PY</string>
         <key>DIGEST_ENGINE</key><string>$ENGINE</string>
         <key>${ENGINE_VAR}</key><string>$ENGINE_BIN</string>
