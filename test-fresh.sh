@@ -71,8 +71,14 @@ restore)
   stop_readers
   sleep 1
   # Throw away whatever the test run produced, then put the originals back.
+  # Anything present now that was NOT stashed was created by the test and did
+  # not exist beforehand, so it has to go too — otherwise files like
+  # .setup-done leak into the real install and "back as it was" is a lie.
   for i in "${ITEMS[@]}"; do
-    [[ -e "$STASH/$i" && -e "$i" ]] && rm -rf "$i"
+    if [[ -e "$i" ]]; then
+      [[ -e "$STASH/$i" ]] || echo "  discarding test artefact: $i"
+      rm -rf "$i"
+    fi
   done
   restored=0
   for i in "${ITEMS[@]}"; do

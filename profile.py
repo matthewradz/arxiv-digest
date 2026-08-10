@@ -50,20 +50,70 @@ def scholar_hint(text):
     return None if "scholar.google" in text else text
 
 
-def find_authors(name, limit=5):
-    data = get("authors", search=name, per_page=limit)
+def find_institution(query):
+    """Resolve 'MIT' or 'Massachusetts Institute of Technology' to an id."""
+    try:
+        data = get("institutions", search=query, per_page=1)
+    except (urllib.error.URLError, TimeoutError):
+        return None
+    for i in data.get("results", []):
+        return {"id": i["id"].rsplit("/", 1)[-1], "name": i["display_name"]}
+    return None
+
+
+def _norm(s):
+    return re.sub(r"[^a-z ]", "", fetch.deaccent(s).lower()).strip()
+
+
+def find_authors(name, limit=8, institution=None):
+    """
+    Look someone up, optionally narrowed to an institution.
+
+    Two things make common names findable. First, the institution filter —
+    'Qi Liu' alone returns 3,760 people ranked by output, none of them the one
+    you want. Second, exact-name-first ranking: OpenAlex's search is fuzzy and
+    will happily return 'Enqi Liu' and 'Stephen Forrest' for 'Qi Liu', so an
+    exact match on the display name is promoted above a more prolific near-miss.
+    """
+    params = {"search": name, "per_page": max(limit, 25)}
+    inst = None
+    if institution:
+        inst = find_institution(institution)
+        if inst:
+            # NB: the working filter is affiliations.institution.id.
+            # last_known_institutions.id silently returns zero results.
+            params["filter"] = f"affiliations.institution.id:{inst['id']}"
+    data = get("authors", **params)
+
+    wanted = _norm(name)
+    wanted_parts = set(wanted.split())
     out = []
     for a in data.get("results", []):
         insts = a.get("last_known_institutions") or []
+        display = a["display_name"]
+        norm = _norm(display)
+        # OpenAlex search is fuzzy enough to return "Stephen R. Forrest" for
+        # "Qi Liu". Require at least one shared name part, or it is noise.
+        if not (wanted_parts & set(norm.split())):
+            continue
+        last_known = insts[0]["display_name"] if insts else ""
         out.append({
             "id": a["id"].rsplit("/", 1)[-1],
-            "name": a["display_name"],
+            "name": display,
             "works": a.get("works_count", 0),
             "cited": a.get("cited_by_count", 0),
-            "institution": insts[0]["display_name"] if insts else "",
+            # When filtering by institution, show the one that was searched:
+            # OpenAlex's "last known" is often stale, so a person who really is
+            # at MIT can show up labelled with a former employer, which reads
+            # like the filter silently failed.
+            "institution": inst["name"] if inst else last_known,
+            "last_known": last_known,
+            "via_institution": bool(inst),
             "topics": [t["display_name"] for t in (a.get("topics") or [])[:8]],
+            "exact": norm == wanted,
         })
-    return out
+    out.sort(key=lambda a: (not a["exact"], -a["cited"]))
+    return out[:limit]
 
 
 def fetch_corpus(author_id, max_works=400):
@@ -143,6 +193,49 @@ def extract_terms(title):
     return terms
 
 
+def merge_corpora(corpora):
+    """
+    Combine several people into one profile weighted towards their overlap.
+
+    With one person this is just their corpus. With two or three, a phrase that
+    shows up in more than one person's titles is what they actually share, so it
+    is scored far above something only one of them writes about — that is the
+    point of adding a second name. Coauthors are unioned rather than
+    intersected: everyone's collaborators are worth seeing.
+    """
+    if len(corpora) == 1:
+        return corpora[0], {}
+
+    merged = {"works_seen": sum(c["works_seen"] for c in corpora),
+              "coauthors": Counter(), "coauthor_display": {},
+              "topics": Counter(), "title_terms": Counter()}
+    for c in corpora:
+        merged["coauthors"].update(c["coauthors"])
+        merged["coauthor_display"].update(c["coauthor_display"])
+        merged["topics"].update(c["topics"])
+
+    # How many of the people use each phrase / topic at all.
+    term_people = Counter()
+    topic_people = Counter()
+    for c in corpora:
+        term_people.update(set(c["title_terms"]))
+        topic_people.update(set(c["topics"]))
+
+    shared_terms, shared_topics = [], []
+    for term, people in term_people.items():
+        total = sum(c["title_terms"].get(term, 0) for c in corpora)
+        if people > 1:
+            # Overlap is the signal: weight it far above a solo interest.
+            merged["title_terms"][term] = total * 10 * people
+            shared_terms.append(term)
+        else:
+            merged["title_terms"][term] = total
+    shared_topics = [t for t, n in topic_people.items() if n > 1]
+
+    return merged, {"shared_terms": shared_terms,
+                    "shared_topics": shared_topics}
+
+
 def build_suggestions(corpus, min_coauthor=3, n_topics=14, n_terms=40,
                       max_coauthors=40):
     # Cap the list: a prolific author has hundreds of coauthors, and the tail is
@@ -165,46 +258,61 @@ def build_suggestions(corpus, min_coauthor=3, n_topics=14, n_terms=40,
     return {"coauthors": coauthors, "topics": topics, "terms": terms}
 
 
-def render_toml(prof, corpus, sug):
+def _who(profiles):
+    return " + ".join(f"{p['name']}"
+                      + (f" ({p['institution']})" if p["institution"] else "")
+                      for p in profiles)
+
+
+def render_toml(profiles, corpus, sug, overlap=None):
+    overlap = overlap or {}
     L = []
     L.append("# " + "=" * 72)
-    L.append(f"#  Generated from the publication record of {prof['name']}")
-    L.append(f"#  {prof['institution']}" if prof["institution"] else "#")
-    L.append(f"#  {corpus['works_seen']} papers read from OpenAlex "
-             f"({prof['cited']} total citations)")
+    L.append(f"#  Generated from the publication record of:")
+    for prof in profiles:
+        L.append(f"#    {prof['name']}"
+                 + (f" — {prof['institution']}" if prof["institution"] else "")
+                 + f"  ({prof['works']} papers, {prof['cited']} citations)")
+    L.append(f"#  {corpus['works_seen']} papers read from OpenAlex")
+    if len(profiles) > 1:
+        L.append("#")
+        L.append(f"#  {len(overlap.get('shared_terms', []))} phrases appear in "
+                 f"more than one of these corpora. Those are the overlap, and")
+        L.append("#  they are weighted far above anything only one person writes about.")
     L.append("#")
     L.append("#  Paste any of this into config.toml, or rerun with --apply.")
     L.append("#  Prune it — frequency is not the same as interest.")
     L.append("# " + "=" * 72)
     L.append("")
     L.append("# --- frequent coauthors, most frequent first ---")
-    L.append("# The number is how many papers they share with him.")
     L.append("[authors]")
     L.append("names = [")
     for name, n in sug["coauthors"]:
         L.append(f'  "{name}",'.ljust(38) + f"# {n} joint papers")
     L.append("]")
     L.append("")
-    L.append("# --- his own recurring subject areas, as classified by OpenAlex ---")
+    L.append("# --- recurring subject areas, as classified by OpenAlex ---")
+    shared_topics = set(overlap.get("shared_topics", []))
     for topic, n in sug["topics"]:
-        L.append(f"#   {topic}  ({n} papers)")
+        mark = "  <- shared" if topic in shared_topics else ""
+        L.append(f"#   {topic}  ({n} papers){mark}")
     L.append("")
-    L.append("# --- recurring phrases from his own titles, as a topic group ---")
-    L.append("# Frequency counts are in the comments. Delete the ones that are")
-    L.append("# incidental and raise the weight if this is the core of his work.")
+    L.append("# --- recurring phrases from their own titles ---")
     L.append("[[topics]]")
     L.append('name = "own-corpus"')
     L.append("weight = 4.0")
     L.append("keywords = [")
+    shared = set(overlap.get("shared_terms", []))
     for term, n in sug["terms"]:
         esc = term.replace("\\", "\\\\").replace('"', '\\"')
-        L.append(f'  "{esc}",'.ljust(40) + f"# {n}")
+        mark = "  shared" if term in shared else ""
+        L.append(f'  "{esc}",'.ljust(40) + f"#{mark}")
     L.append("]")
     L.append("")
     return "\n".join(L)
 
 
-def apply_to_config(sug, prof, corpus_size=0):
+def apply_to_config(sug, profiles, corpus_size=0, overlap=None):
     """Merge suggestions into config.toml, keeping a backup. Never removes."""
     cfg = HOME / "config.toml"
     if not cfg.exists():
@@ -233,9 +341,9 @@ def apply_to_config(sug, prof, corpus_size=0):
 
     added_authors = 0
     if fresh:
-        block = (f"\n  # --- added from {prof['name']}'s coauthors, with joint-paper\n"
-                 f"  #     counts. Frequency is not interest: prune the ones who are\n"
-                 f"  #     collaborators on experiments you would not read. ---\n"
+        block = (f"\n  # --- added from the coauthors of {_who(profiles)},\n"
+                 f"  #     with joint-paper counts. Frequency is not interest:\n"
+                 f"  #     prune collaborators whose own papers you would not read. ---\n"
                  + "".join(f'  "{n}",'.ljust(38) + f"# {c} joint\n"
                            for n, c in fresh))
         # insert just before the closing bracket of [authors].names
@@ -248,11 +356,21 @@ def apply_to_config(sug, prof, corpus_size=0):
     # The reader description is the biggest single lever on what gets picked,
     # so set it from the profile too rather than leaving the generic default.
     areas = "; ".join(t for t, _ in sug["topics"][:8])
-    where = f", {prof['institution']}" if prof["institution"] else ""
-    desc = (f"\n{prof['name']}{where}. Across {corpus_size} indexed papers, "
-            f"publishes on: {areas}.\n"
-            f"Judge papers by whether this person would spend an evening on "
-            f"them.\n")
+    overlap = overlap or {}
+    if len(profiles) == 1:
+        subject = _who(profiles)
+        desc = (f"\n{subject}. Across {corpus_size} indexed papers, "
+                f"publishes on: {areas}.\n"
+                f"Judge papers by whether this person would spend an evening "
+                f"on them.\n")
+    else:
+        shared = ", ".join(overlap.get("shared_topics", [])[:6]) or areas
+        desc = (f"\nA group reading together: {_who(profiles)}.\n"
+                f"Across {corpus_size} indexed papers between them they work on: "
+                f"{areas}.\n"
+                f"Their common ground is: {shared}. Weight papers that sit in "
+                f"that overlap most heavily — a paper only one of them would "
+                f"care about is worth less than one they would all read.\n")
     m = re.search(r'(\[reader\]\s*\ndescription\s*=\s*""")(.*?)(""")', text, re.S)
     if m:
         text = text[:m.end(1)] + desc + text[m.start(3):]
@@ -274,76 +392,108 @@ def apply_to_config(sug, prof, corpus_size=0):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("who", help="a researcher's name, or a Google Scholar URL")
+    ap = argparse.ArgumentParser(
+        description="Build author and topic lists from real publication records.")
+    ap.add_argument("who", nargs="+",
+                    help="one to three researcher names; with more than one, "
+                         "their shared interests are weighted most")
+    ap.add_argument("--at", action="append", default=[],
+                    help="institution for the matching name, e.g. --at MIT "
+                         "(repeat once per name, or omit)")
     ap.add_argument("--apply", action="store_true",
                     help="merge the result into config.toml (keeps a backup)")
     ap.add_argument("--list", action="store_true",
                     help="only show matching people, don't build anything")
-    ap.add_argument("--pick", type=int, default=0,
-                    help="choose the Nth match instead of the best one")
+    ap.add_argument("--pick", action="append", default=[],
+                    help="choose the Nth match for the matching name")
     ap.add_argument("--max-works", type=int, default=400)
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
-    name = scholar_hint(args.who)
-    if name is None:
+    names = [scholar_hint(w) for w in args.who[:3]]
+    if any(n is None for n in names):
         print("A Google Scholar URL does not contain the person's name, and "
-              "Scholar blocks automated lookups.\nRun it with the name instead, "
-              "e.g.  python3 profile.py \"Ada Lovelace\"", file=sys.stderr)
+              "Scholar blocks automated lookups.\nUse the name instead, e.g.  "
+              "python3 profile.py \"Ada Lovelace\" --at MIT", file=sys.stderr)
         return 2
 
-    try:
-        matches = find_authors(name)
-    except (urllib.error.URLError, TimeoutError) as exc:
-        print(f"Could not reach OpenAlex: {exc}", file=sys.stderr)
-        return 2
+    def nth(lst, i, default=None):
+        return lst[i] if i < len(lst) else default
 
-    if not matches:
-        print(f"No one found for {name!r}.", file=sys.stderr)
-        return 1
+    # --- resolve each person -------------------------------------------------
+    profiles, all_matches = [], []
+    for i, nm in enumerate(names):
+        where = nth(args.at, i)
+        try:
+            matches = find_authors(nm, institution=where)
+        except (urllib.error.URLError, TimeoutError) as exc:
+            print(f"Could not reach OpenAlex: {exc}", file=sys.stderr)
+            return 2
+        if not matches:
+            extra = f" at {where}" if where else ""
+            print(f"No one found for {nm!r}{extra}.", file=sys.stderr)
+            if where:
+                print("Try the institution's full name, or drop --at.",
+                      file=sys.stderr)
+            return 1
+        all_matches.append(matches)
+        profiles.append(matches[min(int(nth(args.pick, i, 0) or 0),
+                                    len(matches) - 1)])
 
     if args.list:
         if args.json:
-            print(json.dumps(matches, indent=1))
+            print(json.dumps(all_matches, indent=1))
         else:
-            for i, m in enumerate(matches):
-                print(f"[{i}] {m['name']} — {m['institution'] or 'unknown'}"
-                      f"\n    {m['works']} papers, {m['cited']} citations"
-                      f"\n    {', '.join(m['topics'][:4])}")
+            for nm, matches in zip(names, all_matches):
+                print(f"--- {nm} ---")
+                for i, m in enumerate(matches):
+                    star = " *exact name match*" if m.get("exact") else ""
+                    where = m["institution"] or "unknown"
+                    if m.get("via_institution"):
+                        where = f"affiliated with {where}"
+                        if m.get("last_known") and m["last_known"] != m["institution"]:
+                            where += f"; now listed at {m['last_known']}"
+                    print(f"[{i}] {m['name']} — {where}{star}"
+                          f"\n    {m['works']} papers, {m['cited']} citations"
+                          f"\n    {', '.join(m['topics'][:4])}")
         return 0
 
-    prof = matches[min(args.pick, len(matches) - 1)]
-    if not args.json:
-        print(f"Reading the corpus of {prof['name']} "
-              f"({prof['institution'] or 'affiliation unknown'}) — "
-              f"{prof['works']} papers...", file=sys.stderr)
+    # --- read each corpus ----------------------------------------------------
+    corpora = []
+    for prof in profiles:
+        if not args.json:
+            print(f"Reading {prof['name']} "
+                  f"({prof['institution'] or 'affiliation unknown'}) — "
+                  f"{prof['works']} papers...", file=sys.stderr)
+        try:
+            corpora.append(fetch_corpus(prof["id"], max_works=args.max_works))
+        except (urllib.error.URLError, TimeoutError) as exc:
+            print(f"Could not read the corpus: {exc}", file=sys.stderr)
+            return 2
 
-    try:
-        corpus = fetch_corpus(prof["id"], max_works=args.max_works)
-    except (urllib.error.URLError, TimeoutError) as exc:
-        print(f"Could not read the corpus: {exc}", file=sys.stderr)
-        return 2
-
+    corpus, overlap = merge_corpora(corpora)
     sug = build_suggestions(corpus)
 
     if args.json:
         print(json.dumps({
-            "profile": prof,
+            "profiles": profiles,
             "works_seen": corpus["works_seen"],
             "coauthors": sug["coauthors"],
             "topics": sug["topics"],
             "terms": sug["terms"],
-            "toml": render_toml(prof, corpus, sug),
+            "shared_terms": overlap.get("shared_terms", [])[:40],
+            "shared_topics": overlap.get("shared_topics", []),
+            "toml": render_toml(profiles, corpus, sug, overlap),
         }, indent=1, ensure_ascii=False))
         return 0
 
-    toml_text = render_toml(prof, corpus, sug)
+    toml_text = render_toml(profiles, corpus, sug, overlap)
     out = HOME / "profile-suggestions.toml"
     out.write_text(toml_text, encoding="utf-8")
 
     if args.apply:
-        n_auth, n_terms = apply_to_config(sug, prof, corpus['works_seen'])
+        n_auth, n_terms = apply_to_config(sug, profiles, corpus["works_seen"],
+                                          overlap)
         print(f"\nconfig.toml updated: {n_auth} new authors, "
               f"{n_terms} keyword phrases.")
         print("Previous version saved as config.toml.backup")

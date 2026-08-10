@@ -1,7 +1,7 @@
 # arXiv nightly digest
 
-Reads a whole arXiv announcement every weeknight — for cond-mat that's ~100 new
-papers plus ~55 replacements — and writes you a short digest: five papers worth
+Reads a whole arXiv announcement every weeknight — typically 100-150 new papers
+plus replacements — and writes you a short digest: five papers worth
 downloading with a one-line claim and three bullets each, a handful of
 runners-up, a judgement about what is likely to matter, and what the night's
 titles say about where the field is drifting.
@@ -27,8 +27,10 @@ Then open **arXiv Digest**. On first run it walks you through three steps:
    actually working, and tells you what to run if not.
 2. **Whose work to follow** — type a researcher's name and it reads their real
    publication record for coauthors and topics.
-3. **Which arXiv sections** — the whole of cond-mat, specific subsections like
-   `cond-mat.soft`, or other archives such as `hep-th` and `quant-ph`.
+3. **Which arXiv sections** — any of the 166: a whole archive like `quant-ph`,
+   individual subsections like `cond-mat.soft`, or several at once.
+4. **Where to save papers** — a folder for the PDFs of papers you want, or
+   nothing if you would rather just have the links.
 
 Then it builds your first digest. You can revisit all of it later via
 **Settings** at the bottom of the page.
@@ -73,16 +75,21 @@ listings, so nothing is scheduled at the weekend.
 
 ## Which sections it reads
 
-Set in the wizard, or by hand as `feeds` in `config.toml`:
+**Every arXiv archive and subcategory** — 20 archives, 166 selectable sections.
+Physics is listed first in the wizard, but cs, math, q-bio, econ and the rest are
+all there.
+
+Set it in the wizard, or by hand as `feeds` in `config.toml`:
 
 ```toml
-feeds = ["cond-mat"]                        # a whole archive
-feeds = ["cond-mat.soft", "cond-mat.str-el"] # just some subsections
-feeds = ["cond-mat", "hep-th", "quant-ph"]   # several archives
+feeds = ["quant-ph"]                          # one archive
+feeds = ["cond-mat.soft", "cond-mat.str-el"]  # just some subsections
+feeds = ["quant-ph", "cond-mat", "hep-th"]    # several archives
+feeds = ["cs.LG", "stat.ML"]                  # nothing physics about it
 ```
 
-Anything with an arXiv RSS feed works. Naming a whole archive already includes
-its subsections, so don't list both.
+Naming a whole archive already includes its subsections, so don't list both.
+Feeds from different archives are merged and de-duplicated.
 
 ## Teaching it your taste
 
@@ -148,11 +155,28 @@ Rather than guessing an author list, point it at a researcher and let it read
 their real publication record:
 
 ```bash
-python3 profile.py "Your Name"           # show what it would add
-python3 profile.py "Your Name" --apply   # merge it into config.toml
+python3 profile.py "Your Name"                      # show what it would add
+python3 profile.py "Your Name" --at MIT             # narrow a common name
+python3 profile.py "You" "Colleague" --apply        # two people: weight the overlap
+python3 profile.py --list "Qi Liu" --at MIT         # just see the candidates
 ```
 
 Or click **Tune from a researcher** at the bottom of the reader.
+
+**Common names.** "Qi Liu" alone matches 3,760 people, ranked by output — none of
+them the one you want. Add the institution and it filters to people who have
+published from there. Exact name matches are ranked above fuzzy ones, so
+searching "Qi Liu" no longer returns "Stephen R. Forrest" above the real hit.
+Note the affiliation shown is "affiliated with X; now listed at Y" — OpenAlex's
+"last known" institution is frequently out of date, and hiding that would make a
+correct match look wrong.
+
+**Two or three people.** Give several names and phrases that appear in more than
+one of their corpora are weighted ten times higher than solo interests, so the
+digest favours their common ground. Sachdev + Balents, for instance, resolves to
+*quantum critical, spin liquid, deconfined quantum, thermal Hall, competing
+orders* — which is exactly their overlap. Useful for a research group reading
+together.
 
 It pulls their frequent coauthors (with joint-paper counts) and the recurring
 phrases from their own paper titles, and offers both as config entries. `--apply`
@@ -260,6 +284,26 @@ Produced at runtime, none of it committed: `digests/DATE.md`, `library.md`,
 `picks.jsonl`, `preferences.md`, `config-suggestions.md`,
 `profile-suggestions.toml`, `runs/DATE/` (raw feed, scores, briefing) and
 `logs/`.
+
+## Where papers are saved
+
+By default **nothing is downloaded** — you get links, and clicking *PDF* opens
+arXiv in your browser.
+
+Set a folder (wizard step 4, or `download_dir` in `config.toml`) and the PDF of
+every paper you mark **Want this** is saved there:
+
+```toml
+download_dir = "~/Papers/arxiv"     # empty means links only
+```
+
+Files are named `2608.02732 - Particle-Vortex Duality of Hydrodynamics.pdf`.
+Re-marking a paper you already have does not download it twice, and a failed
+download never loses the pick itself.
+
+**Zotero: coming soon.** Direct import is not built yet. For now point
+`download_dir` at a folder and add it to Zotero — *Settings → Advanced → Files
+and Folders*, or drag the folder into a collection.
 
 ## Where your data lives
 

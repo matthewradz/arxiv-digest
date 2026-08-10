@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The reader app: a small local web page for the nightly cond-mat digest.
+The reader app: a small local web page for the nightly arXiv digest.
 
 Double-clicking the app runs this. It starts a server on localhost, kicks off
 tonight's build, opens the browser, and shuts itself down when left idle.
@@ -163,26 +163,200 @@ def learn_thread():
 
 SETUP_DONE = HOME / ".setup-done"
 
-# The arXiv sections offered in the setup wizard. Picking a whole archive
-# (e.g. "cond-mat") already includes every subsection under it.
-ARXIV_SECTIONS = [
-    ("cond-mat", "Condensed matter — the whole archive", True),
-    ("cond-mat.soft", "  Soft condensed matter", False),
-    ("cond-mat.str-el", "  Strongly correlated electrons", False),
-    ("cond-mat.stat-mech", "  Statistical mechanics", False),
-    ("cond-mat.supr-con", "  Superconductivity", False),
-    ("cond-mat.mes-hall", "  Mesoscale and nanoscale physics", False),
-    ("cond-mat.quant-gas", "  Quantum gases", False),
-    ("cond-mat.dis-nn", "  Disordered systems and neural networks", False),
-    ("cond-mat.mtrl-sci", "  Materials science", False),
-    ("hep-th", "High energy physics — theory", False),
-    ("quant-ph", "Quantum physics", False),
-    ("math-ph", "Mathematical physics", False),
-    ("gr-qc", "General relativity and quantum cosmology", False),
-    ("physics.bio-ph", "Biological physics", False),
-    ("physics.flu-dyn", "Fluid dynamics", False),
-    ("nlin.AO", "Adaptation and self-organizing systems", False),
+# The full arXiv category taxonomy, so any field can use this — not just
+# condensed matter. Physics archives are listed first because that is who this
+# was built for, but every archive is selectable.
+# Generated from https://arxiv.org/category_taxonomy — 155 categories.
+# (archive_code, archive_name, [(category_code, category_name), ...])
+ARXIV_TAXONOMY = [
+    ('quant-ph', 'Quantum Physics', [
+    ]),
+    ('cond-mat', 'Condensed Matter', [
+        ('cond-mat.dis-nn', 'Disordered Systems and Neural Networks'),
+        ('cond-mat.mes-hall', 'Mesoscale and Nanoscale Physics'),
+        ('cond-mat.mtrl-sci', 'Materials Science'),
+        ('cond-mat.other', 'Other Condensed Matter'),
+        ('cond-mat.quant-gas', 'Quantum Gases'),
+        ('cond-mat.soft', 'Soft Condensed Matter'),
+        ('cond-mat.stat-mech', 'Statistical Mechanics'),
+        ('cond-mat.str-el', 'Strongly Correlated Electrons'),
+        ('cond-mat.supr-con', 'Superconductivity'),
+    ]),
+    ('hep-th', 'High Energy Physics — Theory', [
+    ]),
+    ('hep-ph', 'High Energy Physics — Phenomenology', [
+    ]),
+    ('hep-ex', 'High Energy Physics — Experiment', [
+    ]),
+    ('hep-lat', 'High Energy Physics — Lattice', [
+    ]),
+    ('gr-qc', 'General Relativity and Quantum Cosmology', [
+    ]),
+    ('nucl-th', 'Nuclear Theory', [
+    ]),
+    ('nucl-ex', 'Nuclear Experiment', [
+    ]),
+    ('astro-ph', 'Astrophysics', [
+        ('astro-ph.CO', 'Cosmology and Nongalactic Astrophysics'),
+        ('astro-ph.EP', 'Earth and Planetary Astrophysics'),
+        ('astro-ph.GA', 'Astrophysics of Galaxies'),
+        ('astro-ph.HE', 'High Energy Astrophysical Phenomena'),
+        ('astro-ph.IM', 'Instrumentation and Methods for Astrophysics'),
+        ('astro-ph.SR', 'Solar and Stellar Astrophysics'),
+    ]),
+    ('physics', 'Physics', [
+        ('physics.acc-ph', 'Accelerator Physics'),
+        ('physics.ao-ph', 'Atmospheric and Oceanic Physics'),
+        ('physics.app-ph', 'Applied Physics'),
+        ('physics.atm-clus', 'Atomic and Molecular Clusters'),
+        ('physics.atom-ph', 'Atomic Physics'),
+        ('physics.bio-ph', 'Biological Physics'),
+        ('physics.chem-ph', 'Chemical Physics'),
+        ('physics.class-ph', 'Classical Physics'),
+        ('physics.comp-ph', 'Computational Physics'),
+        ('physics.data-an', 'Data Analysis, Statistics and Probability'),
+        ('physics.ed-ph', 'Physics Education'),
+        ('physics.flu-dyn', 'Fluid Dynamics'),
+        ('physics.gen-ph', 'General Physics'),
+        ('physics.geo-ph', 'Geophysics'),
+        ('physics.hist-ph', 'History and Philosophy of Physics'),
+        ('physics.ins-det', 'Instrumentation and Detectors'),
+        ('physics.med-ph', 'Medical Physics'),
+        ('physics.optics', 'Optics'),
+        ('physics.plasm-ph', 'Plasma Physics'),
+        ('physics.pop-ph', 'Popular Physics'),
+        ('physics.soc-ph', 'Physics and Society'),
+        ('physics.space-ph', 'Space Physics'),
+    ]),
+    ('math-ph', 'Mathematical Physics', [
+    ]),
+    ('nlin', 'Nonlinear Sciences', [
+        ('nlin.AO', 'Adaptation and Self-Organizing Systems'),
+        ('nlin.CD', 'Chaotic Dynamics'),
+        ('nlin.CG', 'Cellular Automata and Lattice Gases'),
+        ('nlin.PS', 'Pattern Formation and Solitons'),
+        ('nlin.SI', 'Exactly Solvable and Integrable Systems'),
+    ]),
+    ('math', 'Mathematics', [
+        ('math.AC', 'Commutative Algebra'),
+        ('math.AG', 'Algebraic Geometry'),
+        ('math.AP', 'Analysis of PDEs'),
+        ('math.AT', 'Algebraic Topology'),
+        ('math.CA', 'Classical Analysis and ODEs'),
+        ('math.CO', 'Combinatorics'),
+        ('math.CT', 'Category Theory'),
+        ('math.CV', 'Complex Variables'),
+        ('math.DG', 'Differential Geometry'),
+        ('math.DS', 'Dynamical Systems'),
+        ('math.FA', 'Functional Analysis'),
+        ('math.GM', 'General Mathematics'),
+        ('math.GN', 'General Topology'),
+        ('math.GR', 'Group Theory'),
+        ('math.GT', 'Geometric Topology'),
+        ('math.HO', 'History and Overview'),
+        ('math.IT', 'Information Theory'),
+        ('math.KT', 'K-Theory and Homology'),
+        ('math.LO', 'Logic'),
+        ('math.MG', 'Metric Geometry'),
+        ('math.MP', 'Mathematical Physics'),
+        ('math.NA', 'Numerical Analysis'),
+        ('math.NT', 'Number Theory'),
+        ('math.OA', 'Operator Algebras'),
+        ('math.OC', 'Optimization and Control'),
+        ('math.PR', 'Probability'),
+        ('math.QA', 'Quantum Algebra'),
+        ('math.RA', 'Rings and Algebras'),
+        ('math.RT', 'Representation Theory'),
+        ('math.SG', 'Symplectic Geometry'),
+        ('math.SP', 'Spectral Theory'),
+        ('math.ST', 'Statistics Theory'),
+    ]),
+    ('cs', 'Computer Science', [
+        ('cs.AI', 'Artificial Intelligence'),
+        ('cs.AR', 'Hardware Architecture'),
+        ('cs.CC', 'Computational Complexity'),
+        ('cs.CE', 'Computational Engineering, Finance, and Science'),
+        ('cs.CG', 'Computational Geometry'),
+        ('cs.CL', 'Computation and Language'),
+        ('cs.CR', 'Cryptography and Security'),
+        ('cs.CV', 'Computer Vision and Pattern Recognition'),
+        ('cs.CY', 'Computers and Society'),
+        ('cs.DB', 'Databases'),
+        ('cs.DC', 'Distributed, Parallel, and Cluster Computing'),
+        ('cs.DL', 'Digital Libraries'),
+        ('cs.DM', 'Discrete Mathematics'),
+        ('cs.DS', 'Data Structures and Algorithms'),
+        ('cs.ET', 'Emerging Technologies'),
+        ('cs.FL', 'Formal Languages and Automata Theory'),
+        ('cs.GL', 'General Literature'),
+        ('cs.GR', 'Graphics'),
+        ('cs.GT', 'Computer Science and Game Theory'),
+        ('cs.HC', 'Human-Computer Interaction'),
+        ('cs.IR', 'Information Retrieval'),
+        ('cs.IT', 'Information Theory'),
+        ('cs.LG', 'Machine Learning'),
+        ('cs.LO', 'Logic in Computer Science'),
+        ('cs.MA', 'Multiagent Systems'),
+        ('cs.MM', 'Multimedia'),
+        ('cs.MS', 'Mathematical Software'),
+        ('cs.NA', 'Numerical Analysis'),
+        ('cs.NE', 'Neural and Evolutionary Computing'),
+        ('cs.NI', 'Networking and Internet Architecture'),
+        ('cs.OH', 'Other Computer Science'),
+        ('cs.OS', 'Operating Systems'),
+        ('cs.PF', 'Performance'),
+        ('cs.PL', 'Programming Languages'),
+        ('cs.RO', 'Robotics'),
+        ('cs.SC', 'Symbolic Computation'),
+        ('cs.SD', 'Sound'),
+        ('cs.SE', 'Software Engineering'),
+        ('cs.SI', 'Social and Information Networks'),
+        ('cs.SY', 'Systems and Control'),
+    ]),
+    ('stat', 'Statistics', [
+        ('stat.AP', 'Applications'),
+        ('stat.CO', 'Computation'),
+        ('stat.ME', 'Methodology'),
+        ('stat.ML', 'Machine Learning'),
+        ('stat.OT', 'Other Statistics'),
+        ('stat.TH', 'Statistics Theory'),
+    ]),
+    ('q-bio', 'Quantitative Biology', [
+        ('q-bio.BM', 'Biomolecules'),
+        ('q-bio.CB', 'Cell Behavior'),
+        ('q-bio.GN', 'Genomics'),
+        ('q-bio.MN', 'Molecular Networks'),
+        ('q-bio.NC', 'Neurons and Cognition'),
+        ('q-bio.OT', 'Other Quantitative Biology'),
+        ('q-bio.PE', 'Populations and Evolution'),
+        ('q-bio.QM', 'Quantitative Methods'),
+        ('q-bio.SC', 'Subcellular Processes'),
+        ('q-bio.TO', 'Tissues and Organs'),
+    ]),
+    ('q-fin', 'Quantitative Finance', [
+        ('q-fin.CP', 'Computational Finance'),
+        ('q-fin.EC', 'Economics'),
+        ('q-fin.GN', 'General Finance'),
+        ('q-fin.MF', 'Mathematical Finance'),
+        ('q-fin.PM', 'Portfolio Management'),
+        ('q-fin.PR', 'Pricing of Securities'),
+        ('q-fin.RM', 'Risk Management'),
+        ('q-fin.ST', 'Statistical Finance'),
+        ('q-fin.TR', 'Trading and Market Microstructure'),
+    ]),
+    ('eess', 'Electrical Engineering and Systems Science', [
+        ('eess.AS', 'Audio and Speech Processing'),
+        ('eess.IV', 'Image and Video Processing'),
+        ('eess.SP', 'Signal Processing'),
+        ('eess.SY', 'Systems and Control'),
+    ]),
+    ('econ', 'Economics', [
+        ('econ.EM', 'Econometrics'),
+        ('econ.GN', 'General Economics'),
+        ('econ.TH', 'Theoretical Economics'),
+    ]),
 ]
+
 
 
 def bootstrap_config():
@@ -224,6 +398,23 @@ def write_feeds(feeds):
         return False, "could not find the feeds setting in config.toml"
     cfg.write_text(new, encoding="utf-8")
     return True, valid
+
+
+def write_download_dir(path):
+    cfg = HOME / "config.toml"
+    if not cfg.exists():
+        return False, "config.toml is missing"
+    path = str(path or "").strip()
+    if path and not re.fullmatch(r"[~/][^\"\n]*", path):
+        return False, "give a full path, e.g. ~/Papers/arxiv"
+    text = cfg.read_text(encoding="utf-8")
+    new, n = re.subn(r'^(\s*download_dir\s*=\s*)"[^"]*"',
+                     lambda m: m.group(1) + f'"{path}"', text, count=1,
+                     flags=re.M)
+    if not n:
+        new = text.rstrip() + f'\n\n[settings]\ndownload_dir = "{path}"\n'
+    cfg.write_text(new, encoding="utf-8")
+    return True, path
 
 
 def probe_engine(which, timeout=120):
@@ -572,6 +763,18 @@ cursor:pointer}
 .chk b{font-family:ui-monospace,Menlo,monospace;font-size:13px;min-width:150px;
 color:var(--accent)}
 .chk span{color:var(--dim)}
+.chk.sub{margin-left:26px}
+.chk.sub b{font-size:12.5px;min-width:170px;color:var(--dim)}
+.arch{border-bottom:1px solid var(--line);padding:2px 0}
+.arch:last-child{border-bottom:none}
+.arch details{margin:0 0 6px 26px}
+.arch summary{cursor:pointer;color:var(--dim);font-size:12.5px;
+list-style:none;padding:2px 0}
+.arch summary::-webkit-details-marker{display:none}
+.arch summary:before{content:"▸ ";color:var(--accent)}
+.arch details[open] summary:before{content:"▾ "}
+.checks{max-height:520px;overflow-y:auto;border:1px solid var(--line);
+border-radius:10px;padding:10px 14px;background:var(--card)}
 button.act.big{font-size:16px;padding:11px 22px;border-color:var(--accent);
 color:var(--accent);font-weight:600}
 section{margin-bottom:8px}
@@ -610,7 +813,8 @@ document.addEventListener('click',async e=>{
           : n<12 ? n+' marked · about '+(12-n)+' more before retuning helps'
           : n+' marked · enough to retune';
       }
-      toast(!on?'Recorded. Click again to undo.':'Taken back.');
+      toast(!on ? (res.saved ? 'Recorded — '+res.saved : 'Recorded. Click again to undo.')
+                : 'Taken back.');
     } else { toast(res.error||'Could not save'); }
     return;
   }
@@ -667,74 +871,137 @@ Data comes from <b>OpenAlex</b>, which covers essentially all of the physics
 literature. Google Scholar has no API and blocks automated access, so a Scholar
 link can't be read directly — use the name and you get the same corpus.</p>
 
-<div class="lookup">
-  <input id="who" type="text" placeholder="a researcher's name" autofocus>
-  <button class="act" id="go">Look up</button>
+<div id="people"></div>
+<div class="actions">
+  <button class="act" id="addrow">+ add another person</button>
+  <button class="act" id="useall" disabled>Use these people</button>
 </div>
 <div id="out"></div>
 </main>
 <script>
-const out=document.getElementById('out');
-const who=document.getElementById('who');
-function busy(msg){out.innerHTML='<p class="explain"><span class="spin"></span>'+msg+'</p>';}
-async function jpost(url,body){
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)});
-  return r.json();
+const MAXP = 3;
+const chosen = [];            // {who, at, pick, label}
+const peopleEl = document.getElementById('people');
+const outEl = document.getElementById('out');
+function jpost(u,b){return fetch(u,{method:'POST',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})})
+  .then(r=>r.json());}
+function busy(m){outEl.innerHTML='<p class="explain"><span class="spin"></span>'+m+'</p>';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+function addRow(){
+  if(peopleEl.children.length>=MAXP) return;
+  const i=peopleEl.children.length;
+  const row=document.createElement('div');
+  row.className='prow'; row.dataset.i=i;
+  row.innerHTML=
+    '<div class="lookup">'+
+      '<input class="who" placeholder="researcher name'+(i?' (optional)':'')+'">'+
+      '<input class="at" placeholder="university (optional, but fixes common names)">'+
+      '<button class="act find">Find</button>'+
+    '</div><div class="cand"></div>';
+  peopleEl.append(row);
+  syncButtons();
 }
-async function search(){
-  const name=who.value.trim(); if(!name) return;
-  busy('Searching...');
-  const res=await jpost('/api/profile/search',{who:name});
-  if(!res.ok){out.innerHTML='<p class="explain">'+res.error+'</p>';return;}
-  if(!res.matches.length){out.innerHTML='<p class="explain">Nobody found.</p>';return;}
-  out.innerHTML='<h2>Which one?</h2>'+res.matches.map((m,i)=>
-    '<div class="match"><b>'+m.name+'</b> — '+(m.institution||'affiliation unknown')+
-    '<div class="meta">'+m.works+' papers · '+m.cited.toLocaleString()+' citations</div>'+
-    '<div class="meta">'+(m.topics||[]).slice(0,4).join(' · ')+'</div>'+
-    '<div class="actions"><button class="act" data-pick="'+i+'">Read this corpus</button></div></div>'
-  ).join('');
+function syncButtons(){
+  document.getElementById('addrow').disabled = peopleEl.children.length>=MAXP;
+  document.getElementById('useall').disabled = chosen.filter(Boolean).length===0;
+  const n=chosen.filter(Boolean).length;
+  document.getElementById('useall').textContent =
+    n>1 ? 'Use these '+n+' people (weight their overlap)' : 'Use this person';
 }
-document.getElementById('go').addEventListener('click',search);
-who.addEventListener('keydown',e=>{if(e.key==='Enter')search();});
-out.addEventListener('click',async e=>{
-  const p=e.target.closest('[data-pick]');
-  if(p){
-    busy('Reading the corpus — this takes up to a minute...');
-    const res=await jpost('/api/profile/build',{who:who.value.trim(),pick:+p.dataset.pick});
-    if(!res.ok){out.innerHTML='<p class="explain">'+res.error+'</p>';return;}
-    window.__pick=+p.dataset.pick;
-    out.innerHTML='<h2>Found in '+res.works_seen+' papers</h2>'+
-      '<p class="explain"><b>'+res.coauthors.length+' frequent coauthors</b> and <b>'+
-      res.terms.length+' recurring phrases</b>. Review below, then add them.</p>'+
-      '<div class="actions"><button class="act" id="apply">Add all of this to my config</button></div>'+
-      '<pre class="log" style="max-height:520px">'+
-      res.toml.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>';
+peopleEl.addEventListener('click', async e=>{
+  const row=e.target.closest('.prow'); if(!row) return;
+  const i=+row.dataset.i, cand=row.querySelector('.cand');
+  if(e.target.classList.contains('find')){
+    const who=row.querySelector('.who').value.trim();
+    const at=row.querySelector('.at').value.trim();
+    if(!who) return;
+    cand.innerHTML='<p class="explain"><span class="spin"></span>Searching...</p>';
+    const r=await jpost('/api/profile/search',{who,at});
+    if(!r.ok){cand.innerHTML='<p class="explain">'+esc(r.error)+'</p>';return;}
+    if(!r.matches.length){
+      cand.innerHTML='<p class="explain">Nobody found'+(at?' at '+esc(at):'')+
+        '. Try the full institution name, or clear the university box.</p>';return;}
+    cand.innerHTML=r.matches.map((m,k)=>{
+      let where=esc(m.institution||'unknown');
+      if(m.via_institution&&m.last_known&&m.last_known!==m.institution)
+        where='affiliated with '+where+'; now listed at '+esc(m.last_known);
+      return '<div class="match"><b>'+esc(m.name)+'</b>'+
+        (m.exact?' <span class="tag">exact name</span>':'')+
+        '<div class="meta">'+where+'</div>'+
+        '<div class="meta">'+m.works+' papers · '+m.cited.toLocaleString()+' citations</div>'+
+        '<div class="meta">'+esc((m.topics||[]).slice(0,3).join(' · '))+'</div>'+
+        '<div class="actions"><button class="act use" data-k="'+k+'">Use</button></div></div>';
+    }).join('');
     return;
   }
-  if(e.target.id==='apply'){
-    e.target.disabled=true; e.target.textContent='Adding...';
-    const res=await jpost('/api/profile/apply',{who:who.value.trim(),pick:window.__pick||0});
-    out.insertAdjacentHTML('afterbegin','<p class="explain">'+
-      (res.ok?'Added. A backup of the old config is in config.toml.backup. '+
-              'It takes effect on the next digest.':res.error)+'</p>');
-    e.target.textContent='Added';
+  if(e.target.classList.contains('use')){
+    const k=+e.target.dataset.k;
+    const who=row.querySelector('.who').value.trim();
+    const at=row.querySelector('.at').value.trim();
+    const label=e.target.closest('.match').querySelector('b').textContent;
+    chosen[i]={who,at,pick:k,label};
+    cand.innerHTML='<div class="match picked"><b>'+esc(label)+'</b> — selected'+
+      '<div class="actions"><button class="act clear">change</button></div></div>';
+    syncButtons();
+    return;
+  }
+  if(e.target.classList.contains('clear')){
+    chosen[i]=null; cand.innerHTML=''; syncButtons(); return;
   }
 });
+document.getElementById('addrow').addEventListener('click',addRow);
+document.getElementById('useall').addEventListener('click', async e=>{
+  const people=chosen.filter(Boolean);
+  if(!people.length) return;
+  e.target.disabled=true;
+  busy('Reading '+(people.length>1?people.length+' publication records':'the publication record')+
+       ' — up to a minute'+(people.length>1?' each':'')+'...');
+  const r=await jpost('/api/profile/apply',{people});
+  e.target.disabled=false;
+  outEl.innerHTML='<p class="explain">'+(r.ok
+    ? 'Added'+(people.length>1
+        ? ' — phrases that appear in more than one of these corpora are weighted highest, so the digest favours what they have in common.'
+        : ' their coauthors and topics to your config.')+
+      ' You can prune the list later in config.toml.'
+    : esc(r.error))+'</p>';
+});
+addRow();
+
 </script>
 """
 
 
+def section_picker(current):
+    """Every arXiv archive, subcategories folded away until you open one."""
+    out = []
+    for code, name, subs in ARXIV_TAXONOMY:
+        on = code in current
+        any_sub = any(s in current for s, _ in subs)
+        row = (f'<label class="chk"><input type="checkbox" value="{code}"'
+               f'{" checked" if on else ""}> <b>{code}</b>'
+               f'<span>{html.escape(name)}</span></label>')
+        if not subs:
+            out.append(f'<div class="arch">{row}</div>')
+            continue
+        sub_rows = "".join(
+            f'<label class="chk sub"><input type="checkbox" value="{s}"'
+            f'{" checked" if s in current else ""}> <b>{s}</b>'
+            f'<span>{html.escape(sn)}</span></label>' for s, sn in subs)
+        out.append(
+            f'<div class="arch">{row}'
+            f'<details{" open" if any_sub else ""}>'
+            f'<summary>{len(subs)} subsections</summary>{sub_rows}</details>'
+            f'</div>')
+    return "".join(out)
+
+
 def setup_page():
-    boxes = []
-    current = set(read_feeds())
-    for code, label, default in ARXIV_SECTIONS:
-        on = code in current if current else default
-        indent = ' style="margin-left:22px"' if label.startswith("  ") else ""
-        boxes.append(
-            f'<label class="chk"{indent}><input type="checkbox" value="{code}"'
-            f'{" checked" if on else ""}> <b>{code}</b>'
-            f'<span>{html.escape(label.strip())}</span></label>')
+    boxes = [section_picker(set(read_feeds()))]
+    n_sections = len(ARXIV_TAXONOMY) + sum(len(s) for _, _, s in ARXIV_TAXONOMY)
+    dl = pick.download_dir()
+    current_dl = html.escape(str(dl)) if dl else ''
 
     return page("Set up your digest", f"""
 <header><div class="bar"><h1>arXiv digest — setup</h1>
@@ -770,19 +1037,38 @@ defaults instead.
 <i>Google Scholar has no API and blocks automated access, so paste the name
 rather than a Scholar link — the corpus comes from OpenAlex, which covers the
 same literature.</i></p>
-<div class="lookup">
-  <input id="who" type="text" placeholder="a researcher's name">
-  <button class="act" id="go">Look up</button>
+<div id="people"></div>
+<div class="actions">
+  <button class="act" id="addrow">+ add another person</button>
+  <button class="act" id="useall" disabled>Use these people</button>
 </div>
 <div id="out"></div>
 </section>
 
 <section><h2>Step 3 · Which arXiv sections?</h2>
-<p class="explain">Pick the whole archive, or specific subsections. Choosing
-<b>cond-mat</b> already includes everything indented under it.</p>
+<p class="explain">Tick a whole archive, or open it and pick individual
+subsections. Ticking an archive already covers everything inside it, so don't
+tick both. Physics archives are listed first, but everything arXiv publishes is
+here — <b>{n_sections}</b> sections in all.</p>
 <div class="checks">{''.join(boxes)}</div>
 <div class="actions"><button class="act" id="savefeeds">Save sections</button>
 <span id="feedmsg" class="count"></span></div>
+</section>
+
+<section><h2>Step 4 · Where should papers be saved?</h2>
+<p class="explain">When you click <b>Want this</b> on a paper, the PDF is
+downloaded here. Leave it empty and nothing is downloaded — you just get the
+links, and clicking <b>PDF</b> opens arXiv in your browser.
+<br><br>
+<b>Zotero users:</b> point this at a folder and Zotero can pick papers up from
+it automatically. Direct "send to Zotero" is <i>coming soon</i>; for now, in
+Zotero use <i>Settings → Advanced → Files and Folders</i>, or just drag the
+folder into a collection.</p>
+<div class="lookup">
+  <input id="dldir" type="text" placeholder="~/Papers/arxiv  (leave empty for links only)" value="{current_dl}">
+  <button class="act" id="savedl">Save folder</button>
+</div>
+<span id="dlmsg" class="count"></span>
 </section>
 
 <section><h2>Done?</h2>
@@ -813,35 +1099,109 @@ document.getElementById('chk').addEventListener('click',async e=>{{
              : '<p class="explain">Nothing usable yet. Install one above, run it once to sign in, then press Check again.</p>';
   auth.innerHTML=h;
 }});
-const out=document.getElementById('out'), who=document.getElementById('who');
-function busy(m){{out.innerHTML='<p class="explain"><span class="spin"></span>'+m+'</p>';}}
-async function search(){{
-  const n=who.value.trim(); if(!n) return;
-  busy('Searching...');
-  const r=await jpost('/api/profile/search',{{who:n}});
-  if(!r.ok){{out.innerHTML='<p class="explain">'+r.error+'</p>';return;}}
-  if(!r.matches.length){{out.innerHTML='<p class="explain">Nobody found by that name.</p>';return;}}
-  out.innerHTML='<h4>Which one?</h4>'+r.matches.map((m,i)=>
-    '<div class="match"><b>'+m.name+'</b> — '+(m.institution||'affiliation unknown')+
-    '<div class="meta">'+m.works+' papers · '+m.cited.toLocaleString()+' citations</div>'+
-    '<div class="meta">'+(m.topics||[]).slice(0,4).join(' · ')+'</div>'+
-    '<div class="actions"><button class="act" data-pick="'+i+'">Use this person</button></div></div>').join('');
+
+const MAXP = 3;
+const chosen = [];            // {{who, at, pick, label}}
+const peopleEl = document.getElementById('people');
+const outEl = document.getElementById('out');
+function jpost(u,b){{return fetch(u,{{method:'POST',
+  headers:{{'Content-Type':'application/json'}},body:JSON.stringify(b||{{}})}})
+  .then(r=>r.json());}}
+function busy(m){{outEl.innerHTML='<p class="explain"><span class="spin"></span>'+m+'</p>';}}
+function esc(s){{return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}}
+
+function addRow(){{
+  if(peopleEl.children.length>=MAXP) return;
+  const i=peopleEl.children.length;
+  const row=document.createElement('div');
+  row.className='prow'; row.dataset.i=i;
+  row.innerHTML=
+    '<div class="lookup">'+
+      '<input class="who" placeholder="researcher name'+(i?' (optional)':'')+'">'+
+      '<input class="at" placeholder="university (optional, but fixes common names)">'+
+      '<button class="act find">Find</button>'+
+    '</div><div class="cand"></div>';
+  peopleEl.append(row);
+  syncButtons();
 }}
-document.getElementById('go').addEventListener('click',search);
-who.addEventListener('keydown',e=>{{if(e.key==='Enter')search();}});
-out.addEventListener('click',async e=>{{
-  const p=e.target.closest('[data-pick]'); if(!p) return;
-  busy('Reading the corpus — up to a minute...');
-  const r=await jpost('/api/profile/apply',{{who:who.value.trim(),pick:+p.dataset.pick}});
-  out.innerHTML='<p class="explain">'+(r.ok
-    ? 'Added their coauthors and topics to your config. You can prune the list later in config.toml.'
-    : r.error)+'</p>';
+function syncButtons(){{
+  document.getElementById('addrow').disabled = peopleEl.children.length>=MAXP;
+  document.getElementById('useall').disabled = chosen.filter(Boolean).length===0;
+  const n=chosen.filter(Boolean).length;
+  document.getElementById('useall').textContent =
+    n>1 ? 'Use these '+n+' people (weight their overlap)' : 'Use this person';
+}}
+peopleEl.addEventListener('click', async e=>{{
+  const row=e.target.closest('.prow'); if(!row) return;
+  const i=+row.dataset.i, cand=row.querySelector('.cand');
+  if(e.target.classList.contains('find')){{
+    const who=row.querySelector('.who').value.trim();
+    const at=row.querySelector('.at').value.trim();
+    if(!who) return;
+    cand.innerHTML='<p class="explain"><span class="spin"></span>Searching...</p>';
+    const r=await jpost('/api/profile/search',{{who,at}});
+    if(!r.ok){{cand.innerHTML='<p class="explain">'+esc(r.error)+'</p>';return;}}
+    if(!r.matches.length){{
+      cand.innerHTML='<p class="explain">Nobody found'+(at?' at '+esc(at):'')+
+        '. Try the full institution name, or clear the university box.</p>';return;}}
+    cand.innerHTML=r.matches.map((m,k)=>{{
+      let where=esc(m.institution||'unknown');
+      if(m.via_institution&&m.last_known&&m.last_known!==m.institution)
+        where='affiliated with '+where+'; now listed at '+esc(m.last_known);
+      return '<div class="match"><b>'+esc(m.name)+'</b>'+
+        (m.exact?' <span class="tag">exact name</span>':'')+
+        '<div class="meta">'+where+'</div>'+
+        '<div class="meta">'+m.works+' papers · '+m.cited.toLocaleString()+' citations</div>'+
+        '<div class="meta">'+esc((m.topics||[]).slice(0,3).join(' · '))+'</div>'+
+        '<div class="actions"><button class="act use" data-k="'+k+'">Use</button></div></div>';
+    }}).join('');
+    return;
+  }}
+  if(e.target.classList.contains('use')){{
+    const k=+e.target.dataset.k;
+    const who=row.querySelector('.who').value.trim();
+    const at=row.querySelector('.at').value.trim();
+    const label=e.target.closest('.match').querySelector('b').textContent;
+    chosen[i]={{who,at,pick:k,label}};
+    cand.innerHTML='<div class="match picked"><b>'+esc(label)+'</b> — selected'+
+      '<div class="actions"><button class="act clear">change</button></div></div>';
+    syncButtons();
+    return;
+  }}
+  if(e.target.classList.contains('clear')){{
+    chosen[i]=null; cand.innerHTML=''; syncButtons(); return;
+  }}
 }});
+document.getElementById('addrow').addEventListener('click',addRow);
+document.getElementById('useall').addEventListener('click', async e=>{{
+  const people=chosen.filter(Boolean);
+  if(!people.length) return;
+  e.target.disabled=true;
+  busy('Reading '+(people.length>1?people.length+' publication records':'the publication record')+
+       ' — up to a minute'+(people.length>1?' each':'')+'...');
+  const r=await jpost('/api/profile/apply',{{people}});
+  e.target.disabled=false;
+  outEl.innerHTML='<p class="explain">'+(r.ok
+    ? 'Added'+(people.length>1
+        ? ' — phrases that appear in more than one of these corpora are weighted highest, so the digest favours what they have in common.'
+        : ' their coauthors and topics to your config.')+
+      ' You can prune the list later in config.toml.'
+    : esc(r.error))+'</p>';
+}});
+addRow();
+
 document.getElementById('savefeeds').addEventListener('click',async ()=>{{
   const f=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
   const r=await jpost('/api/setup/feeds',{{feeds:f}});
   document.getElementById('feedmsg').textContent =
     r.ok ? 'saved: '+r.feeds.join(', ') : r.error;
+}});
+document.getElementById('savedl').addEventListener('click',async ()=>{{
+  const v=document.getElementById('dldir').value.trim();
+  const r=await jpost('/api/setup/download-dir',{{path:v}});
+  document.getElementById('dlmsg').textContent = r.ok
+    ? (r.path ? 'papers will be saved to '+r.path : 'not saving PDFs — links only')
+    : r.error;
 }});
 document.getElementById('finish').addEventListener('click',async e=>{{
   e.target.disabled=true; e.target.textContent='Starting...';
@@ -899,6 +1259,7 @@ def digest_page(date):
                             f'<p>{html.escape(str(exc))}</p></div>')
 
     pretty = datetime.strptime(date, "%Y-%m-%d").strftime("%A %-d %B %Y")
+    sections = html.escape(", ".join(read_feeds()))
     tally = (f'{stats.get("total", 0)} papers announced · '
              f'{stats.get("new", 0)} new · '
              f'{stats.get("replacements", 0)} replacements'
@@ -909,7 +1270,7 @@ def digest_page(date):
     npicks = len(picks)
 
     header = f"""<header><div class="bar">
-  <h1>arXiv cond-mat</h1>
+  <h1>arXiv {sections}</h1>
   <span class="date">{html.escape(pretty)}</span>
   <span class="sp"></span>
   <span class="date">{tally}</span>
@@ -933,7 +1294,7 @@ def digest_page(date):
   <button class="act" data-act="rebuild">Rebuild tonight</button>
 </div></footer>"""
 
-    return page(f"cond-mat {date}", header + f"<main>{body}</main>" + footer)
+    return page(f"arXiv {date}", header + f"<main>{body}</main>" + footer)
 
 
 # ==========================================================================
@@ -1031,9 +1392,16 @@ class Handler(BaseHTTPRequestHandler):
                 if unknown:
                     return self._json({"ok": False,
                                        "error": "not in any stored run"})
+                rec = pick.existing_picks().get(pid, {})
+                saved = rec.get("saved_to", "")
+                where = ("saved to " + str(Path(saved).parent) if saved
+                         else "" if pick.download_dir() is None
+                         else "could not download the PDF")
             else:
                 pick.unrecord_ids([pid])
-            return self._json({"ok": True, "total": len(pick.picked_ids())})
+                where = ""
+            return self._json({"ok": True, "total": len(pick.picked_ids()),
+                               "saved": where})
 
         if u.path == "/api/setup/auth":
             claude = probe_engine("claude")
@@ -1048,30 +1416,56 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"ok": True, "feeds": res} if ok
                               else {"ok": False, "error": res})
 
+        if u.path == "/api/setup/download-dir":
+            ok, res = write_download_dir(data.get("path"))
+            return self._json({"ok": True, "path": res} if ok
+                              else {"ok": False, "error": res})
+
         if u.path == "/api/setup/done":
             SETUP_DONE.write_text("setup completed\n", encoding="utf-8")
             return self._json({"ok": True})
 
         if u.path.startswith("/api/profile/"):
-            who = str(data.get("who") or "").strip()
-            if not who:
-                return self._json({"ok": False, "error": "give a name"}, 400)
-            picked = str(int(data.get("pick") or 0))
             what = u.path.rsplit("/", 1)[-1]
 
             if what == "search":
-                ok, res = run_profile(["--list", "--json", who], timeout=60)
-                return self._json({"ok": True, "matches": res} if ok
-                                  else {"ok": False, "error": res})
+                who = str(data.get("who") or "").strip()
+                if not who:
+                    return self._json({"ok": False, "error": "give a name"}, 400)
+                cli = ["--list", "--json", who]
+                at = str(data.get("at") or "").strip()
+                if at:
+                    cli += ["--at", at]
+                ok, res = run_profile(cli, timeout=90)
+                if not ok:
+                    return self._json({"ok": False, "error": res})
+                # --list --json returns one match list per name; we sent one.
+                return self._json({"ok": True, "matches": res[0] if res else []})
+
+            # build / apply take a list of up to three people
+            people = data.get("people") or []
+            if not people:
+                return self._json({"ok": False, "error": "no one selected"}, 400)
+            cli = []
+            for p in people[:3]:
+                cli.append(str(p.get("who") or "").strip())
+            if not all(cli):
+                return self._json({"ok": False, "error": "a name is blank"}, 400)
+            for p in people[:3]:
+                cli += ["--at", str(p.get("at") or "")]
+                cli += ["--pick", str(int(p.get("pick") or 0))]
+
             if what == "build":
-                ok, res = run_profile(["--json", "--pick", picked, who])
+                ok, res = run_profile(cli + ["--json"], timeout=900)
                 if not ok:
                     return self._json({"ok": False, "error": res})
                 return self._json({"ok": True, "works_seen": res["works_seen"],
                                    "coauthors": res["coauthors"],
-                                   "terms": res["terms"], "toml": res["toml"]})
+                                   "terms": res["terms"],
+                                   "shared_terms": res.get("shared_terms", []),
+                                   "toml": res["toml"]})
             if what == "apply":
-                ok, res = run_profile(["--apply", "--pick", picked, who])
+                ok, res = run_profile(cli + ["--apply"], timeout=900)
                 return self._json({"ok": True, "message": res} if ok
                                   else {"ok": False, "error": res})
             return self._json({"ok": False, "error": "unknown action"}, 404)

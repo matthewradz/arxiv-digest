@@ -1,12 +1,12 @@
 # ============================================================================
-#  arXiv cond-mat nightly digest — configuration
+#  arXiv nightly digest — configuration
 #  Edit this file freely. Nothing else needs to change.
 #
 #  How scoring works:
 #    score = (author points) + (topic points) + (bonuses)
-#  Papers are ranked by score; the top ones get full abstracts sent to Claude,
-#  which then picks the 5 best, flags likely-influential work, and writes the
-#  trend summary.
+#  Papers are ranked by score; the top ones get full abstracts sent to the
+#  model, which picks the 5 best, flags likely-influential work, and writes
+#  the trend summary.
 # ============================================================================
 
 [settings]
@@ -21,8 +21,17 @@ author_points = 5.0           # points per matched author from the list below
 author_points_first_last = 2.0  # extra if the matched author is first or last author
 title_multiplier = 2.0        # topic keyword hits in the TITLE count this much more
 review_bonus = 3.0            # likely review / colloquium / lecture notes
-cross_list_bonus = 0.5        # points per additional non-cond-mat category (interdisciplinary)
+cross_list_bonus = 0.5        # per category outside the archives you follow
 
+
+# Where to save the PDFs of papers you mark as wanted. Leave empty to save
+# nothing and just keep the links. "~" is expanded.
+#   download_dir = "~/Papers/arxiv"
+# Coming soon: sending them straight into Zotero. For now this is a plain
+# folder, which Zotero can watch and auto-import from
+# (Zotero: Settings -> Advanced -> Files and Folders -> Linked Attachment Base
+# Directory, or drag the folder into a collection).
+download_dir = ""
 
 # ============================================================================
 #  READER — who the digest is written for. This is injected into the briefing
@@ -129,7 +138,10 @@ names = [
 
 
 # ============================================================================
-#  TOPICS — keyword groups. Each `keywords` entry is a case-insensitive
+#  TOPICS — keyword groups. These defaults lean towards physics;
+#  replace them with whatever your field actually uses. Setup step 2
+#  also adds an 'own-corpus' group from real paper titles.
+#  keyword groups. Each `keywords` entry is a case-insensitive
 #  regular expression matched against the title and abstract. A group scores
 #  its `weight` once, plus a smaller amount for each extra distinct hit, and
 #  title hits are multiplied by settings.title_multiplier.
@@ -232,6 +244,18 @@ keywords = [
   "\\breviewed here\\b", "Rev\\.? Mod\\.? Phys", "lecture notes",
   "\\bcolloquium\\b", "\\btutorial\\b", "pedagogical", "\\bprimer\\b",
   "\\bwe (give|provide) an overview\\b", "\\bself-contained introduction\\b",
+]
+
+[[topics]]
+name = "quantum-information"
+weight = 4.0
+keywords = [
+  "quantum error correction", "\\bstabilizer\\b", "surface code", "\\bqubit",
+  "quantum algorithm", "quantum advantage|quantum supremacy", "\\bdecoherence",
+  "entanglement entropy", "\\bmagic state", "fault-tolerant",
+  "quantum circuit", "variational quantum", "\\bNISQ\\b", "quantum simulator",
+  "randomized benchmarking", "\\bteleportation", "quantum channel",
+  "measurement-induced", "\\bcode distance", "logical qubit",
 ]
 
 [[topics]]

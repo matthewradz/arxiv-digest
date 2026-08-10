@@ -1,6 +1,6 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
-#  Double-click this file to install the arXiv cond-mat digest.
+#  Double-click this file to install the arXiv digest.
 #
 #  It copies everything to ~/arxiv-digest, builds "arXiv Digest.app" in your
 #  Applications folder, and offers to run it automatically each weeknight.
@@ -15,8 +15,8 @@ ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
 
 clear
-bold "arXiv cond-mat nightly digest"
-dim  "Reads the whole cond-mat listing each night and writes you five papers."
+bold "arXiv nightly digest"
+dim  "Reads the arXiv sections you choose each night, and writes you five papers."
 echo
 
 # --- prerequisites ---------------------------------------------------------

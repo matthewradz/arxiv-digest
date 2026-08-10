@@ -1,6 +1,6 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
-#  Nightly arXiv cond-mat digest.
+#  Nightly arXiv digest.
 #
 #    ./run.sh              build tonight's digest (skips if already built)
 #    ./run.sh --force      rebuild even if tonight's digest exists
@@ -31,7 +31,7 @@ done
 
 notify() {
   [[ -z "$NOTIFY" ]] && return 0
-  osascript -e "display notification \"$1\" with title \"arXiv cond-mat digest\"" \
+  osascript -e "display notification \"$1\" with title \"arXiv digest\"" \
     >/dev/null 2>&1
 }
 
@@ -46,7 +46,7 @@ PY="$(require_python)" || exit 127
 say() { printf '%s\n' "$*"; }
 
 # --- 1. fetch and score ----------------------------------------------------
-say "Fetching tonight's cond-mat announcement..."
+say "Fetching tonight's arXiv announcement..."
 FETCH_OUT="$("$PY" fetch.py $FORCE 2>&1)"
 FETCH_RC=$?
 printf '%s\n' "$FETCH_OUT"
@@ -89,7 +89,7 @@ if ! engine_run "$DIR/prompt.md" "$BRIEF" "$TMP" "$LOG"; then
 fi
 
 # Only replace the digest if we got something that looks like one.
-if [[ ! -s "$TMP" ]] || ! grep -q '^# arXiv cond-mat' "$TMP"; then
+if [[ ! -s "$TMP" ]] || ! grep -q '^# arXiv ' "$TMP"; then
   say "Digest output looked malformed; kept at $TMP rather than overwriting $OUT."
   say "See $LOG for details."
   exit 1

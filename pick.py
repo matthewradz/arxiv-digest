@@ -15,8 +15,13 @@ browser, in library.md, and on the command line all end up in the same place.
 import argparse
 import json
 import re
+import shutil
+import urllib.error
+import urllib.request
 from datetime import date
 from pathlib import Path
+
+import fetch  # pretty_name(), so saved filenames read like the digest does
 
 HOME = Path(__file__).resolve().parent
 PICKS = HOME / "picks.jsonl"
@@ -110,6 +115,57 @@ def set_library_ticks(marks):
     LIBRARY.write_text("\n".join(lines), encoding="utf-8")
 
 
+def download_dir():
+    """Where to save PDFs, or None if saving is switched off."""
+    cfg = HOME / "config.toml"
+    if not cfg.exists():
+        return None
+    m = re.search(r'^\s*download_dir\s*=\s*"([^"]*)"',
+                  cfg.read_text(encoding="utf-8"), re.M)
+    if not m or not m.group(1).strip():
+        return None
+    return Path(m.group(1).strip()).expanduser()
+
+
+def safe_filename(pid, title, limit=110):
+    """'2608.02732 - Particle-Vortex Duality of Hydrodynamics.pdf'"""
+    clean = re.sub(r"[^\w \-.,()]", "", fetch.pretty_name(title)).strip()
+    clean = re.sub(r"\s+", " ", clean)[:limit].rstrip(" .")
+    return f"{pid} - {clean}.pdf" if clean else f"{pid}.pdf"
+
+
+def save_pdf(pid, title, version=""):
+    """
+    Fetch the PDF for a paper into the configured folder.
+
+    Returns (status, detail) where status is 'saved', 'exists', 'off' or 'error'.
+    Never raises: a failed download must not lose the pick itself, which is the
+    thing that actually matters.
+    """
+    folder = download_dir()
+    if folder is None:
+        return "off", ""
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / safe_filename(pid, title)
+        if target.exists() and target.stat().st_size > 0:
+            return "exists", str(target)
+        url = f"https://arxiv.org/pdf/{pid}{version}"
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "arxiv-digest/1.0 (personal reading list)"})
+        tmp = target.with_suffix(".part")
+        with urllib.request.urlopen(req, timeout=120) as resp, \
+                tmp.open("wb") as fh:
+            shutil.copyfileobj(resp, fh)
+        if tmp.stat().st_size < 1000:      # an error page, not a paper
+            tmp.unlink(missing_ok=True)
+            return "error", "arXiv returned no PDF"
+        tmp.replace(target)
+        return "saved", str(target)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return "error", str(exc)
+
+
 def record_ids(ids, index=None):
     """Append picks for these arXiv ids. Returns (added, skipped, unknown)."""
     ids = [n for n in (normalise(i) for i in ids) if n]
@@ -127,8 +183,11 @@ def record_ids(ids, index=None):
                 unknown.append(pid)
                 continue
             listing, it, tag = index[pid]
+            saved_status, saved_path = save_pdf(pid, it["title"],
+                                               it["version"] if it["is_replacement"] else "")
             fh.write(json.dumps({
                 "id": pid,
+                "saved_to": saved_path if saved_status in ("saved", "exists") else "",
                 "listing_date": listing,
                 "recorded_on": date.today().isoformat(),
                 "title": it["title"],

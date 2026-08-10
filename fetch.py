@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Fetch the arXiv cond-mat announcement, score every paper against the author
-and topic lists in config.toml, and write a compact briefing for Claude.
+Fetch tonight's arXiv announcement for the sections in config.toml, score every
+paper against the author and topic lists, and write a compact briefing.
 
 Standard library only — no pip install needed.
 
@@ -212,7 +212,12 @@ def compile_topics(topics):
     return out
 
 
-def score_item(item, author_index, topics, cfg):
+def followed_archives(cfg):
+    """The archives being read, e.g. {"cond-mat"} or {"quant-ph", "hep-th"}."""
+    return {str(f).split(".")[0] for f in cfg.get("feeds", ["cond-mat"])}
+
+
+def score_item(item, author_index, topics, cfg, archives=None):
     """Attach score + explanation fields to item; return the score."""
     score = 0.0
     reasons = []
@@ -279,7 +284,12 @@ def score_item(item, author_index, topics, cfg):
         reasons.append(f"review +{cfg['review_bonus']:.1f}")
         signals.append("reads like a review / colloquium / lecture notes")
 
-    outside = [c for c in item["categories"] if not c.startswith("cond-mat")]
+    # "Outside" means outside the archives you actually follow. Hardcoding
+    # cond-mat here would hand a quant-ph reader a cross-list bonus on nearly
+    # every paper, which is the opposite of the signal intended.
+    archives = archives or {"cond-mat"}
+    outside = [c for c in item["categories"]
+               if c.split(".")[0] not in archives]
     if outside:
         pts = cfg["cross_list_bonus"] * len(outside)
         score += pts
@@ -287,11 +297,11 @@ def score_item(item, author_index, topics, cfg):
         signals.append("spans " + ", ".join(item["categories"]))
 
     if item["announce"] == "cross":
-        signals.append(f"cross-list into cond-mat from {item['primary']}")
+        signals.append(f"cross-listed in from {item['primary']}")
     if item["is_replacement"]:
         signals.append(f"replacement {item['version']} of an existing paper")
     if item["announce"] == "replace-cross":
-        signals.append("existing paper newly cross-listed into cond-mat")
+        signals.append("existing paper newly cross-listed into your sections")
 
     item["score"] = round(score, 2)
     item["matched_authors"] = matched
@@ -312,14 +322,16 @@ def one_line_authors(item, limit=6):
     return ", ".join(a[:limit]) + f", +{len(a) - limit} more"
 
 
-def write_brief(path, listing_date, items, candidates, cfg, prefs, reader):
+def write_brief(path, listing_date, items, candidates, cfg, prefs, reader,
+                sections=None):
     counts = {}
     for it in items:
         counts[it["announce"]] = counts.get(it["announce"], 0) + 1
     tally = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
 
     L = []
-    L.append(f"# arXiv cond-mat — listing for {listing_date}")
+    L.append(f"# arXiv {', '.join(sections or ['cond-mat'])} — "
+             f"listing for {listing_date}")
     L.append("")
     L.append(f"Announcement contains {len(items)} papers ({tally}).")
     L.append(f"{len(candidates)} cleared the relevance filter "
@@ -465,8 +477,9 @@ def main():
         return 3
 
     # --- score -------------------------------------------------------------
+    archives = followed_archives(cfg)
     for it in items:
-        score_item(it, author_index, topics, cfg)
+        score_item(it, author_index, topics, cfg, archives)
 
     # Rank new/cross and replacements in separate pools with separate slot
     # budgets, so a high-scoring v3 update can never displace tonight's new work.
@@ -498,7 +511,7 @@ def main():
                     "candidates": candidates}, indent=1, ensure_ascii=False),
         encoding="utf-8")
     write_brief(run_dir / "brief.md", listing_date, items, candidates, cfg,
-                prefs, reader)
+                prefs, reader, cfg.get("feeds", ["cond-mat"]))
 
     n_auth = sum(1 for c in candidates if c["matched_authors"])
     print(f"LISTING_DATE {listing_date}")
