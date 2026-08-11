@@ -122,10 +122,20 @@ echo
 
 # --- the app ---------------------------------------------------------------
 bold "Building the app"
-if (cd "$DEST" && ./install-app.sh >/dev/null 2>&1); then
-  ok "\"arXiv Digest\" is in your Applications folder"
+# Call it through bash rather than ./: a zip made on Windows carries no Unix
+# permission bits, so install-app.sh arrives without +x and ./ would fail with
+# nothing but "Permission denied" - which used to be swallowed, leaving no app
+# and no explanation. Keep the output on failure for the same reason.
+app_log="$(cd "$DEST" && bash ./install-app.sh 2>&1)"
+if [[ $? -eq 0 ]]; then
+  # install-app.sh picks /Applications or ~/Applications depending on what it
+  # can write, and prints the path — report the one it actually used.
+  app_path="$(printf '%s\n' "$app_log" | sed -n 's/^Installed: //p' | tail -1)"
+  ok "\"arXiv Digest\" is in ${app_path:-your Applications folder}"
+  echo "     (open it from Applications, or Spotlight: \"arXiv Digest\")"
 else
   bad "could not build the app — you can still run $DEST/run.sh by hand"
+  printf '%s\n' "$app_log" | sed 's/^/       /'
 fi
 echo
 

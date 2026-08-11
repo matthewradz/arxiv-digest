@@ -41,13 +41,40 @@ echo   Checking what's on this PC
 echo.
 
 REM --- Python 3.11+ ----------------------------------------------------------
+REM  Set PYTHON=C:\path\to\python.exe to choose one yourself.
 set "PY="
-for %%C in (py.exe python.exe python3.exe) do (
+if defined PYTHON if exist "%PYTHON%" (
+  "%PYTHON%" -c "import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)" >nul 2>&1
+  if not errorlevel 1 set "PY=%PYTHON%"
+)
+
+if not defined PY for %%C in (py.exe python.exe python3.exe) do (
   if not defined PY (
     for /f "delims=" %%P in ('where %%C 2^>nul') do (
       if not defined PY (
         "%%P" -c "import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)" >nul 2>&1
         if not errorlevel 1 set "PY=%%P"
+      )
+    )
+  )
+)
+
+REM Conda is how most scientists have a modern Python, and it is normally in a
+REM named environment that is only on PATH while that environment is active.
+REM Double-clicking this file gets a plain cmd.exe with none of that, so look
+REM in the environment directories directly - otherwise the one Python on the
+REM machine that would work is the one we fail to find.
+if not defined PY (
+  set "CONDA_ROOTS=%CONDA_PREFIX%;%USERPROFILE%\anaconda3;%USERPROFILE%\miniconda3;%USERPROFILE%\miniforge3;%USERPROFILE%\AppData\Local\anaconda3;%USERPROFILE%\AppData\Local\miniconda3;%USERPROFILE%\AppData\Local\Continuum\anaconda3;C:\ProgramData\anaconda3;C:\ProgramData\miniconda3"
+  for %%R in ("!CONDA_ROOTS:;=" "!") do (
+    if not defined PY if exist "%%~R\python.exe" (
+      "%%~R\python.exe" -c "import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)" >nul 2>&1
+      if not errorlevel 1 set "PY=%%~R\python.exe"
+    )
+    if exist "%%~R\envs" for /d %%E in ("%%~R\envs\*") do (
+      if not defined PY if exist "%%~E\python.exe" (
+        "%%~E\python.exe" -c "import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)" >nul 2>&1
+        if not errorlevel 1 set "PY=%%~E\python.exe"
       )
     )
   )
@@ -59,6 +86,11 @@ if not defined PY (
   echo       Install it from https://www.python.org/downloads/
   echo       IMPORTANT: tick "Add python.exe to PATH" during setup,
   echo       then double-click this installer again.
+  echo.
+  echo       Already have one in a conda environment? Either activate it and
+  echo       run this from that prompt, or point at it directly, e.g.
+  echo           set PYTHON=%USERPROFILE%\anaconda3\envs\myenv\python.exe
+  echo       and run this installer again from the same window.
   echo.
   pause
   exit /b 1

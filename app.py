@@ -78,7 +78,8 @@ def build_thread(force=False):
         set_state(phase="error",
                   message="No model CLI was found. Install Claude Code (for a "
                           "Claude Pro/Max plan) or Codex CLI (for a ChatGPT "
-                          "Plus/Pro plan), sign in, then try again.")
+                          "Plus/Pro plan), sign in, then press Back to setup "
+                          "and check it from there.")
         return
 
     cmd = [sys.executable, str(HOME / "pipeline.py"), "digest"] \
@@ -913,7 +914,10 @@ peopleEl.addEventListener('click', async e=>{
         '. Try the full institution name, or clear the university box.</p>';return;}
     cand.innerHTML=r.matches.map((m,k)=>{
       let where=esc(m.institution||'affiliation unknown');
-      if(m.school)
+      if(m.sampled)
+        where=m.at_school+' of '+Math.min(m.sampled,m.works)+
+          ' papers read at '+esc(m.school||'no listed affiliation');
+      else if(m.school)
         where=m.at_school
           ? m.at_school+' of '+m.works+' papers at '+esc(m.school)
           : 'no papers found at '+esc(m.school)+' — listed at '+
@@ -1141,7 +1145,10 @@ peopleEl.addEventListener('click', async e=>{{
         '. Try the full institution name, or clear the university box.</p>';return;}}
     cand.innerHTML=r.matches.map((m,k)=>{{
       let where=esc(m.institution||'affiliation unknown');
-      if(m.school)
+      if(m.sampled)
+        where=m.at_school+' of '+Math.min(m.sampled,m.works)+
+          ' papers read at '+esc(m.school||'no listed affiliation');
+      else if(m.school)
         where=m.at_school
           ? m.at_school+' of '+m.works+' papers at '+esc(m.school)
           : 'no papers found at '+esc(m.school)+' — listed at '+
@@ -1229,9 +1236,13 @@ def status_page():
     with LOCK:
         st = dict(STATE)
     phase = st["phase"]
+    # Setup is reachable from here in both states. Without it, a build that
+    # fails for want of a signed-in CLI is a dead end: the only link to setup
+    # used to live on the digest page, which there is no way to reach yet.
     if phase == "error":
         inner = (f'<h1>Something went wrong</h1><p>{html.escape(st["message"])}</p>'
                  f'<p><a class="btn" href="/?rebuild=1">Try again</a> '
+                 f'<a class="btn" href="/setup">Back to setup</a> '
                  f'<a class="btn" href="/?date=latest">Read the last digest</a></p>')
         if st["lines"]:
             inner += f'<div class="log">{html.escape(chr(10).join(st["lines"]))}</div>'
@@ -1240,6 +1251,7 @@ def status_page():
                  f'<p id="msg">{html.escape(st["message"])}</p>'
                  f'<p style="color:var(--dim)">Reading about 155 abstracts. '
                  f'This takes a couple of minutes — you can leave it.</p>'
+                 f'<p><a class="btn" href="/setup">Back to setup</a></p>'
                  f'<div class="log" id="log">'
                  f'{html.escape(chr(10).join(st["lines"]))}</div>')
     return page("arXiv digest", f'<div class="status">{inner}</div>',
@@ -1512,6 +1524,9 @@ def idle_watchdog(server):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-build", action="store_true")
+    ap.add_argument("--setup", action="store_true",
+                    help="open setup instead of building, to change engine "
+                         "or sections")
     ap.add_argument("--no-open", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--port", type=int, default=0)
@@ -1521,9 +1536,12 @@ def main():
 
     running = already_running()
     if running:
+        # Hand the request to the instance that is already up rather than
+        # refusing: --setup from a terminal has to reach its setup page too.
+        where = "/setup" if args.setup else "/"
         if not args.no_open:
-            webbrowser.open(f"http://127.0.0.1:{running}/")
-        print(f"Reader already running at http://127.0.0.1:{running}/")
+            webbrowser.open(f"http://127.0.0.1:{running}{where}")
+        print(f"Reader already running at http://127.0.0.1:{running}{where}")
         return 0
 
     if sys.version_info < (3, 11):
@@ -1540,7 +1558,7 @@ def main():
     PORT_FILE.write_text(str(port))
 
     fresh = not SETUP_DONE.exists() and not digest_dates()
-    if args.no_build or fresh:
+    if args.setup or args.no_build or fresh:
         # On a brand-new install, show the wizard instead of burning a couple of
         # minutes on a build the user has not configured yet.
         set_state(phase="ready", date=latest_date(), message="")
@@ -1550,7 +1568,7 @@ def main():
 
     threading.Thread(target=idle_watchdog, args=(server,), daemon=True).start()
 
-    url = f"http://127.0.0.1:{port}/"
+    url = f"http://127.0.0.1:{port}/setup" if args.setup         else f"http://127.0.0.1:{port}/"
     print(f"Reader at {url}   (quits by itself when left idle)")
     if not args.no_open:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()

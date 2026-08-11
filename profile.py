@@ -20,6 +20,7 @@ import html
 import json
 import re
 import sys
+import time
 import tomllib
 import unicodedata
 import urllib.error
@@ -48,11 +49,25 @@ UA = "arxiv-digest/1.0 (nightly reading list; mailto:%s)" % MAILTO
 
 
 def get(path, **params):
+    """
+    One OpenAlex call, with a short backoff.
+
+    Splitting a record by affiliation costs a call per candidate, and OpenAlex
+    answers a burst with 429. Retrying twice turns what was a dead lookup into
+    a slightly slower one.
+    """
     params["mailto"] = MAILTO
     url = f"{API}/{path}?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=45) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
+                raise
+            time.sleep(1.5 * (attempt + 1))
+    raise urllib.error.URLError("gave up after three attempts")
 
 
 def scholar_hint(text):
@@ -96,6 +111,58 @@ def works_at(author_id, inst_id, sample=50):
             counts[t["display_name"]] += 1
     return ((page.get("meta") or {}).get("count", 0),
             [t for t, _ in counts.most_common(8)])
+
+
+def affiliation_clusters(author_id, sample=100):
+    """
+    Split one record into the people it actually holds, by where the work was
+    done. Returns [{inst_id, name, works, sampled, topics}], biggest first.
+
+    OpenAlex merges people who share a name: one 'Qi Liu' record carries an MIT
+    physicist, a Chinese-medicine researcher, a telecoms engineer and a
+    mechanical engineer. Offering that as a single person is the worst outcome
+    available - whichever one you wanted, you get a profile built from all four.
+    Grouping the works by the affiliation on the record's own authorship pulls
+    them back apart. The same person under two affiliations turns into two
+    entries, which is the right way round: a repeat is easy to ignore, a blend
+    of four strangers is not.
+    """
+    clusters, seen, cursor = {}, 0, "*"
+    while seen < sample and cursor:
+        try:
+            page = get("works", filter=f"author.id:{author_id}", per_page=100,
+                       cursor=cursor, select="authorships,topics")
+        except (urllib.error.URLError, TimeoutError):
+            break
+        results = page.get("results", [])
+        if not results:
+            break
+        for w in results:
+            seen += 1
+            insts = []
+            for a in w.get("authorships", []):
+                # id can be present and null, on works OpenAlex never
+                # attributed to a disambiguated author.
+                if ((a.get("author") or {}).get("id") or ""
+                        ).rsplit("/", 1)[-1] == author_id:
+                    insts = a.get("institutions") or []
+                    break
+            topics = [t["display_name"] for t in (w.get("topics") or [])[:3]]
+            # No affiliation recorded is its own bucket, not a match for any
+            # named one - it is the commonest state for early-career people.
+            for i in insts or [{}]:
+                key = (i.get("id") or "").rsplit("/", 1)[-1]
+                c = clusters.setdefault(key, {
+                    "inst_id": key, "name": i.get("display_name") or "",
+                    "works": 0, "topics": Counter()})
+                c["works"] += 1
+                c["topics"].update(topics)
+        cursor = (page.get("meta") or {}).get("next_cursor")
+    out = sorted(clusters.values(), key=lambda c: -c["works"])
+    for c in out:
+        c["sampled"] = seen
+        c["topics"] = [t for t, _ in c["topics"].most_common(8)]
+    return out
 
 
 def find_authors(name, limit=8, institution=None):
@@ -176,7 +243,27 @@ def find_authors(name, limit=8, institution=None):
                     a["topics"] = topics_there
         out = [a for a in out if a["at_school"]] or out[:limit]
         out.sort(key=lambda a: (not a["exact"], -a["at_school"], -a["cited"]))
-    return out[:limit]
+        return out[:limit]
+
+    # No school to check against, so nothing has pulled the merged records
+    # apart yet. Split each one by where its work was actually done and offer
+    # the pieces separately, rather than one entry standing for four people.
+    split = []
+    for a in out[:6]:
+        for c in affiliation_clusters(a["id"])[:4]:
+            row = dict(a)
+            row["at_school"] = c["works"]
+            row["sampled"] = c["sampled"]
+            row["school"] = c["name"]
+            row["inst_id"] = c["inst_id"]
+            row["institution"] = c["name"] or "affiliation unknown"
+            if c["topics"]:
+                row["topics"] = c["topics"]
+            split.append(row)
+    if not split:
+        return out[:limit]
+    split.sort(key=lambda a: (not a["exact"], -a["at_school"], -a["cited"]))
+    return split[:limit]
 
 
 def fetch_corpus(author_id, max_works=400, inst_id=""):
@@ -515,8 +602,12 @@ def main():
                 print(f"--- {nm} ---")
                 for i, m in enumerate(matches):
                     star = " *exact name match*" if m.get("exact") else ""
-                    if m.get("school"):
-                        n = m.get("at_school", 0)
+                    n = m.get("at_school", 0)
+                    if m.get("sampled"):
+                        of = min(m["sampled"], m["works"])
+                        where = (f"{n} of {of} papers read at "
+                                 f"{m['school'] or 'no listed affiliation'}")
+                    elif m.get("school"):
                         where = (f"{n} of {m['works']} papers at {m['school']}"
                                  if n else
                                  f"no papers found at {m['school']}"

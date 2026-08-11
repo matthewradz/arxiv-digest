@@ -13,7 +13,17 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="${1:-$HOME/Applications}"
+# Prefer /Applications, which is the "Applications" people mean and the one
+# Finder's sidebar opens. ~/Applications is a different folder that often does
+# not exist, so an app installed only there looks like it was never installed.
+# No sudo either way: fall back rather than prompt for a password.
+if [[ -n "${1:-}" ]]; then
+  DEST="$1"
+elif [[ -w /Applications ]]; then
+  DEST="/Applications"
+else
+  DEST="$HOME/Applications"
+fi
 APP="$DEST/arXiv Digest.app"
 
 mkdir -p "$DEST" || { echo "cannot write to $DEST" >&2; exit 1; }
@@ -53,13 +63,26 @@ fail() {
   exit 1
 }
 
-# Find a Python that is at least 3.11 (tomllib).
+# Find a Python that is at least 3.11 (tomllib). A double-clicked app inherits
+# no shell profile, so a conda environment is never active here - look inside
+# the env directories, which is where most scientists' only modern Python is.
+CANDS=()
+for root in "$HOME/anaconda3" "$HOME/miniconda3" "$HOME/miniforge3" \
+            "$HOME/mambaforge" /opt/anaconda3 /opt/miniconda3; do
+  [[ -d "$root" ]] || continue
+  CANDS+=("$root/bin/python3")
+  for env in "$root"/envs/*/bin/python3; do
+    [[ -x "$env" ]] && CANDS+=("$env")
+  done
+done
+CANDS+=(/opt/homebrew/bin/python3.14 /opt/homebrew/bin/python3.13
+        /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3
+        /usr/local/bin/python3 "$(command -v python3 2>/dev/null)"
+        /usr/bin/python3)
+
 PY=""
-for cand in "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
-            /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 \
-            /opt/homebrew/bin/python3 /usr/local/bin/python3 \
-            "$(command -v python3 2>/dev/null)" /usr/bin/python3; do
-  [[ -x "$cand" ]] || continue
+for cand in "${CANDS[@]}"; do
+  [[ -n "$cand" && -x "$cand" ]] || continue
   if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' 2>/dev/null; then
     PY="$cand"; break
   fi

@@ -7,9 +7,28 @@
 
 find_python() {
   local cand
+  # Conda is how most scientists get a modern Python, and it is usually in a
+  # named environment rather than the base install - a GUI or scheduled launch
+  # never sources the shell profile that would put it on PATH, so look in the
+  # environment directories directly.
+  local conda_envs=()
+  local root
+  for root in "${CONDA_PREFIX:-}" "${CONDA_ROOT:-}" \
+              "$HOME/anaconda3" "$HOME/miniconda3" "$HOME/miniforge3" \
+              "$HOME/mambaforge" /opt/anaconda3 /opt/miniconda3 \
+              /opt/homebrew/Caskroom/miniforge/base; do
+    [[ -n "$root" && -d "$root" ]] || continue
+    conda_envs+=("$root/bin/python3")
+    local env
+    for env in "$root"/envs/*/bin/python3; do
+      [[ -x "$env" ]] && conda_envs+=("$env")
+    done
+  done
+
   for cand in "${PYTHON:-}" \
-              "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
-              /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 \
+              "${conda_envs[@]:-}" \
+              /opt/homebrew/bin/python3.14 /opt/homebrew/bin/python3.13 \
+              /opt/homebrew/bin/python3.12 \
               /opt/homebrew/bin/python3 /usr/local/bin/python3 \
               "$(command -v python3 2>/dev/null)" /usr/bin/python3; do
     [[ -n "$cand" && -x "$cand" ]] || continue
