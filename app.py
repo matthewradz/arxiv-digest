@@ -1246,7 +1246,10 @@ def digest_page(date):
             "arXiv digest", f'<div class="status"><h1>Cannot read {date}</h1>'
                             f'<p>{html.escape(str(exc))}</p></div>')
 
-    pretty = datetime.strptime(date, "%Y-%m-%d").strftime("%A %-d %B %Y")
+    # "%-d" for an unpadded day is a glibc/BSD extension: it reads fine on
+    # macOS and Linux and raises ValueError on Windows. Interpolate the day.
+    when = datetime.strptime(date, "%Y-%m-%d")
+    pretty = f"{when:%A} {when.day} {when:%B %Y}"
     sections = html.escape(", ".join(read_feeds()))
     tally = (f'{stats.get("total", 0)} papers announced · '
              f'{stats.get("new", 0)} new · '

@@ -14,6 +14,7 @@ Force one with DIGEST_ENGINE=claude|codex. Pick a model with DIGEST_MODEL.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,12 +60,41 @@ def search_path(windows=None):
     return os.pathsep.join(parts)
 
 
+def behind_shim(path):
+    """
+    Resolve an npm .cmd shim to the .exe it wraps, on Windows.
+
+    npm installs claude and codex as a .cmd that forwards with %*. That runs
+    under cmd.exe, which ends a command line at the first newline, so the
+    6 KB prompt.md arrived as its 79-character first line and the model
+    improvised the whole format. Calling the .exe directly passes it whole.
+    """
+    if os.name != "nt" or Path(path).suffix.lower() not in (".cmd", ".bat"):
+        return path
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return path
+    m = re.search(r'"([^"\n]*\.exe)"', text)
+    if not m:
+        return path
+    # The shim refers to its own directory as %dp0% or %~dp0. Plain replace,
+    # not re.sub: a Windows path is full of backslashes, which re treats as
+    # escapes in the replacement.
+    target = m.group(1)
+    for token in ("%~dp0", "%dp0%"):
+        target = target.replace(token, str(Path(path).parent) + os.sep)
+    target = str(Path(target)) if target else ""
+    return target if target and Path(target).is_file() else path
+
+
 def find(exe):
     """Locate a CLI, honouring an explicit override first."""
     override = os.environ.get(f"{exe.upper()}_BIN")
     if override and Path(override).exists():
-        return override
-    return shutil.which(exe, path=search_path())
+        return behind_shim(override)
+    found = shutil.which(exe, path=search_path())
+    return behind_shim(found) if found else None
 
 
 def detect():
