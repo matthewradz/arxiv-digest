@@ -13,7 +13,17 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="${1:-$HOME/Applications}"
+# Prefer /Applications: Finder's sidebar "Applications" shows /Applications,
+# not ~/Applications, so installing to the home folder makes the app look like
+# it was never installed. Fall back to ~/Applications when /Applications is not
+# writable (no admin rights), and say which one was used.
+if [[ -n "${1:-}" ]]; then
+  DEST="$1"
+elif [[ -w "/Applications" ]]; then
+  DEST="/Applications"
+else
+  DEST="$HOME/Applications"
+fi
 APP="$DEST/arXiv Digest.app"
 
 mkdir -p "$DEST" || { echo "cannot write to $DEST" >&2; exit 1; }
@@ -54,8 +64,17 @@ fail() {
 }
 
 # Find a Python that is at least 3.11 (tomllib).
+# .python-path is what the installer recorded, and it wins: it may point into
+# a conda or virtual environment that this launcher cannot activate. Because
+# the tool is standard-library only, the interpreter path alone is enough.
 PY=""
-for cand in "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
+RECORDED=""
+[[ -f "$DIGEST_DIR/.python-path" ]] && RECORDED="$(head -n1 "$DIGEST_DIR/.python-path" | tr -d '[:space:]')"
+for cand in "$RECORDED" "${PYTHON:-}" \
+            "${CONDA_PREFIX:-}/bin/python3" \
+            "${VIRTUAL_ENV:-}/bin/python3" \
+            "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
+            "$HOME/miniforge3/bin/python3" \
             /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 \
             /opt/homebrew/bin/python3 /usr/local/bin/python3 \
             "$(command -v python3 2>/dev/null)" /usr/bin/python3; do
@@ -64,7 +83,7 @@ for cand in "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
     PY="$cand"; break
   fi
 done
-[[ -n "$PY" ]] || fail "Python 3.11 or newer is needed but was not found. Install it from python.org, then open this app again."
+[[ -n "$PY" ]] || fail "Python 3.11 or newer is needed but was not found. If yours is in a conda or virtual environment, write its full path into $DIGEST_DIR/.python-path"
 
 [[ -d "$DIGEST_DIR" ]] || fail "The digest folder is missing: $DIGEST_DIR"
 
@@ -84,6 +103,7 @@ touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$APP" >/dev/null 2>&1
 
+echo "INSTALLED_AT $APP"
 echo "Installed: $APP"
 echo
 echo "Double-click it to build and read tonight's digest."

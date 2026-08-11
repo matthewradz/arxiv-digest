@@ -18,7 +18,15 @@ echo   Checking what's on this PC
 echo.
 
 REM --- Python 3.11+ ----------------------------------------------------------
+REM An activated conda or venv wins: someone with 3.12 in an env and 3.11 in
+REM base should get the env they chose.
 set "PY="
+if defined CONDA_PREFIX if exist "%CONDA_PREFIX%\python.exe" set "PY=%CONDA_PREFIX%\python.exe"
+if not defined PY if defined VIRTUAL_ENV if exist "%VIRTUAL_ENV%\Scripts\python.exe" set "PY=%VIRTUAL_ENV%\Scripts\python.exe"
+if defined PY (
+  "%PY%" -c "import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)" >nul 2>&1
+  if errorlevel 1 set "PY="
+)
 for %%C in (py.exe python.exe python3.exe) do (
   if not defined PY (
     for /f "delims=" %%P in ('where %%C 2^>nul') do (
@@ -36,6 +44,11 @@ if not defined PY (
   echo       Install it from https://www.python.org/downloads/
   echo       IMPORTANT: tick "Add python.exe to PATH" during setup,
   echo       then double-click this installer again.
+  echo.
+  echo       If your Python is in a conda environment, this installer cannot
+  echo       see it when double-clicked. Open Anaconda Prompt instead:
+  echo           conda activate myenv
+  echo           "%~f0"
   echo.
   pause
   exit /b 1
@@ -97,7 +110,12 @@ if exist "%DEST%\config.toml" (
   copy /Y "config.default.toml" "%DEST%\config.toml" >nul
   echo   [ok] config.toml created from the defaults
 )
+REM Remember the interpreter: the scheduled task cannot activate an
+REM environment, and since the tool is standard-library only it does not need
+REM one activated - just this path.
+> "%DEST%\.python-path" echo %PY%
 echo   [ok] program files installed
+echo        using %PY%  (recorded in .python-path - edit to change)
 echo.
 
 REM --- launcher + Desktop shortcut ------------------------------------------

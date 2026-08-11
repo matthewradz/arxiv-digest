@@ -23,3 +23,6 @@ __pycache__/
 
 # test-fresh.sh stash
 .stash/
+
+# recorded interpreter (per-machine, set at install time)
+.python-path

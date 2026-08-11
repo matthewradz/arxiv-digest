@@ -33,8 +33,19 @@ cd ~/arxiv-digest
 python3 schedule.py install         # optional: run it automatically
 ```
 
-Then open **arXiv Digest** — Applications on a Mac, Desktop on Windows. On first
-run it walks you through:
+Then open **arXiv Digest** — the installer prints its exact location. On a Mac
+that is `/Applications`, or `~/Applications` if you lack admin rights (that is
+the Applications folder in your *home* folder, which is **not** the one in
+Finder's sidebar — reach it with Finder → Go → Go to Folder → `~/Applications`).
+On Windows it is a Desktop shortcut.
+
+You can always start it without the app:
+
+```bash
+python3 ~/arxiv-digest/app.py
+```
+
+On first run it walks you through:
 
 1. **Sign in** — checks whether Claude Code or Codex CLI is installed and
    actually working, and tells you what to run if not.
@@ -47,6 +58,32 @@ run it walks you through:
 
 Then it builds your first digest. You can revisit all of it later via
 **Settings** at the bottom of the page.
+
+### If your Python is in a conda or virtual environment
+
+Common, and it needs one extra step: **Finder and the Windows shell do not
+activate anything**, so a double-clicked installer cannot see your env. Run the
+installer from a terminal with the env active instead:
+
+```bash
+conda activate myenv                      # or: source .venv/bin/activate
+bash ~/Downloads/arxiv-digest/install_mac.command
+```
+
+```bat
+REM Windows, in Anaconda Prompt
+conda activate myenv
+install_windows.bat
+```
+
+The installer records that interpreter's full path in `.python-path` and
+everything reuses it from then on — the app, the command line, and the nightly
+job. **You never need to activate the environment again**, because the tool is
+standard-library only: it needs the interpreter, not the environment. That is
+also why the 9pm scheduled run works, since a scheduler cannot run
+`conda activate`.
+
+To change it later, edit `.python-path`, or set `PYTHON=/path/to/python3`.
 
 Requires Python 3.11+ and either Claude Code or Codex CLI. To send it to someone
 who won't use git, run `./package.sh` — the zip carries both installers, so the

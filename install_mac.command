@@ -23,11 +23,18 @@ echo
 # --- prerequisites ---------------------------------------------------------
 bold "Checking what's on this Mac"
 
+# Whatever the user activated wins. Checking the fixed locations first meant
+# `conda activate myenv` was silently ignored in favour of the base env.
 PY=""
-for cand in "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
+for cand in "${PYTHON:-}" \
+            "${CONDA_PREFIX:-}/bin/python3" \
+            "${VIRTUAL_ENV:-}/bin/python3" "${VIRTUAL_ENV:-}/bin/python" \
+            "$(command -v python3 2>/dev/null)" \
+            "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3" \
+            "$HOME/miniforge3/bin/python3" \
             /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 \
             /opt/homebrew/bin/python3 /usr/local/bin/python3 \
-            "$(command -v python3 2>/dev/null)" /usr/bin/python3; do
+            /usr/bin/python3; do
   [[ -n "$cand" && -x "$cand" ]] || continue
   if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' 2>/dev/null; then
     PY="$cand"; break
@@ -36,12 +43,25 @@ done
 
 if [[ -n "$PY" ]]; then
   ok "Python $("$PY" -c 'import sys;print("%d.%d"%sys.version_info[:2])') — $PY"
+  if [[ -n "${CONDA_PREFIX:-}" && "$PY" == "$CONDA_PREFIX"* ]]; then
+    dim "       (from the active conda environment: $(basename "$CONDA_PREFIX"))"
+  elif [[ -n "${VIRTUAL_ENV:-}" && "$PY" == "$VIRTUAL_ENV"* ]]; then
+    dim "       (from the active virtual environment: $(basename "$VIRTUAL_ENV"))"
+  fi
 else
   bad "No Python 3.11 or newer found."
   echo
   echo "  macOS only ships Python 3.9, which is too old."
-  echo "  Install a current one from https://www.python.org/downloads/"
-  echo "  then double-click this installer again."
+  echo
+  echo "  If yours is in a conda or virtual environment, this installer cannot"
+  echo "  see it when launched from Finder — Finder does not activate anything."
+  echo "  Run it from a terminal with the environment active instead:"
+  echo
+  bold "      conda activate myenv"
+  bold "      bash \"$(pwd)/install_mac.command\""
+  echo
+  echo "  Or install a system-wide Python from https://www.python.org/downloads/"
+  echo "  and double-click this installer again."
   echo
   read -r -p "Press return to close. " _
   exit 1
@@ -116,16 +136,26 @@ if [[ -z "${SKIP:-}" ]]; then
     [[ -f library.md && ! -f "$DEST/library.md" ]] && cp library.md "$DEST/library.md"
   fi
   chmod +x "$DEST"/*.sh "$DEST"/*.py 2>/dev/null
+  # Remember which interpreter to use. The nightly job cannot run
+  # `conda activate`, so it needs the absolute path — and because the tool is
+  # standard-library only, the path alone is enough.
+  printf '%s\n' "$PY" > "$DEST/.python-path"
   ok "program files installed"
+  dim "       using $PY (recorded in .python-path — edit to change)"
 fi
 echo
 
 # --- the app ---------------------------------------------------------------
 bold "Building the app"
-if (cd "$DEST" && ./install-app.sh >/dev/null 2>&1); then
-  ok "\"arXiv Digest\" is in your Applications folder"
+APP_OUT="$(cd "$DEST" && ./install-app.sh 2>&1)"
+APP_PATH="$(printf '%s\n' "$APP_OUT" | awk '/^INSTALLED_AT /{ $1=""; sub(/^ /,""); print }')"
+if [[ -n "$APP_PATH" && -d "$APP_PATH" ]]; then
+  ok "app installed at:"
+  echo "        $APP_PATH"
 else
-  bad "could not build the app — you can still run $DEST/run.sh by hand"
+  bad "could not build the app. The reason was:"
+  printf '%s\n' "$APP_OUT" | sed 's/^/        /'
+  echo "        You can still start it with:  $PY $DEST/app.py"
 fi
 echo
 
@@ -158,8 +188,20 @@ echo
 # --- done ------------------------------------------------------------------
 bold "Done."
 echo
-echo "  Open \"arXiv Digest\" from Applications — it walks you through setup:"
-echo "  signing in, whose work to follow, and which arXiv sections to read."
+if [[ -n "${APP_PATH:-}" ]]; then
+  echo "  Open it from:"
+  bold "      $APP_PATH"
+  case "$APP_PATH" in
+    "$HOME/Applications"*)
+      echo "  Note: that is the Applications folder in your HOME folder, which is"
+      echo "  not the one in Finder's sidebar. To get there: Finder > Go >"
+      echo "  Go to Folder, then type  ~/Applications" ;;
+  esac
+else
+  echo "  Start it with:  $PY $DEST/app.py"
+fi
+echo "  It walks you through setup: signing in, whose work to follow, which"
+echo "  arXiv sections, and where to save papers."
 echo "  Drag it to your Dock so it is one click away."
 echo
 echo "  The first digest takes a couple of minutes to build — it reads every"
@@ -171,4 +213,8 @@ dim  "  my picks\" and it starts matching your taste. Edit $DEST/config.toml to"
 dim  "  change the author list and topics — plain text with comments."
 echo
 read -r -p "Press return to open it now (or close this window). " _
-open -a "arXiv Digest" 2>/dev/null || (cd "$DEST" && "$PY" app.py >/dev/null 2>&1 &)
+if [[ -n "${APP_PATH:-}" && -d "$APP_PATH" ]]; then
+  open "$APP_PATH"
+else
+  (cd "$DEST" && "$PY" app.py >/dev/null 2>&1 &)
+fi
