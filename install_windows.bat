@@ -14,6 +14,29 @@ echo.
 echo   arXiv nightly digest
 echo   Reads the arXiv sections you choose each night, and writes you five papers.
 echo.
+
+REM --- are the program files actually here? -----------------------------------
+REM Double-clicking this file while it is still inside the zip extracts only the
+REM .bat, to a temp folder of its own. Every copy below then finds nothing and
+REM does nothing, and the install still reports success - leaving a shortcut
+REM pointing at an app.py that was never written. Check first instead.
+set "MISSING="
+for %%F in (app.py engine.py fetch.py pipeline.py config.default.toml prompt.md) do (
+  if not exist "%%F" set "MISSING=!MISSING! %%F"
+)
+if defined MISSING (
+  echo   [X] The program files are not next to this installer.
+  echo       Missing:!MISSING!
+  echo.
+  echo       This usually means the installer is running from inside the zip.
+  echo       Unzip the whole arxiv-digest folder somewhere first - your Desktop
+  echo       or Downloads is fine - then open that folder and double-click
+  echo       install_windows.bat from there.
+  echo.
+  pause
+  exit /b 1
+)
+
 echo   Checking what's on this PC
 echo.
 
@@ -104,6 +127,17 @@ if exist "%DEST%\config.toml" (
   copy /Y "config.default.toml" "%DEST%\config.toml" >nul
   echo   [ok] config.toml created from the defaults
 )
+
+REM Say it landed only if it actually landed: copy errors above are sent to nul
+REM so the install does not stop on one unreadable file, which also means a
+REM wholesale failure would otherwise be announced as a success.
+if not exist "%DEST%\app.py" (
+  echo   [X] copying the program into %DEST% failed.
+  echo       Check that you can write to that folder, then try again.
+  echo.
+  pause
+  exit /b 1
+)
 echo   [ok] program files installed
 echo.
 
@@ -112,11 +146,14 @@ REM --- launcher + Desktop shortcut ------------------------------------------
 >> "%DEST%\arXiv Digest.bat" echo cd /d "%%~dp0"
 >> "%DEST%\arXiv Digest.bat" echo start "" "%PY%" app.py
 
-REM pythonw.exe runs without a console window. Fall back to python.exe if
-REM this is a py.exe launcher install that has no pythonw beside it.
+REM pythonw.exe runs without a console window, so the app opens with no black
+REM box behind it. py.exe has its own windowless twin, pyw.exe - without this
+REM the substitution below leaves py.exe unchanged, that path exists, and the
+REM shortcut keeps a console open for as long as the app runs.
 set "PYW=%PY:python.exe=pythonw.exe%"
-if not exist "%PYW%" for /f "delims=" %%W in ('where pythonw.exe 2^>nul') do set "PYW=%%W"
-if not exist "%PYW%" set "PYW=%PY%"
+if /i "!PYW!"=="%PY%" set "PYW=%PY:py.exe=pyw.exe%"
+if not exist "!PYW!" for /f "delims=" %%W in ('where pythonw.exe 2^>nul') do set "PYW=%%W"
+if not exist "!PYW!" set "PYW=%PY%"
 
 REM Ask Windows for the real Desktop folder rather than assuming
 REM %USERPROFILE%\Desktop - OneDrive Known Folder Move relocates it to
