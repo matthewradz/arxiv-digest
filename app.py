@@ -16,9 +16,7 @@ tools and this app stay interchangeable.
 import argparse
 import html
 import json
-import os
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -30,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import engine
 import pick
 
 HOME = Path(__file__).resolve().parent
@@ -54,24 +53,8 @@ LOCK = threading.Lock()
 # ==========================================================================
 
 def resolve_env():
-    """A GUI-launched app inherits almost no PATH. Rebuild a usable one."""
-    env = dict(os.environ)
-    extra = [str(Path.home() / ".local/bin"), "/usr/local/bin",
-             "/opt/homebrew/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-    parts = [p for p in env.get("PATH", "").split(":") if p]
-    for p in extra:
-        if p not in parts:
-            parts.append(p)
-    env["PATH"] = ":".join(parts)
-    for var, exe in (("CLAUDE_BIN", "claude"), ("CODEX_BIN", "codex")):
-        if not env.get(var):
-            found = shutil.which(exe, path=env["PATH"])
-            if found:
-                env[var] = found
-    # We already know we are a new enough Python; hand run.sh the same one
-    # rather than letting it resolve a bare `python3` off a minimal PATH.
-    env["PYTHON"] = sys.executable
-    return env
+    """One definition of the subprocess environment, shared with the pipeline."""
+    return engine.env_for_subprocess()
 
 
 def set_state(**kw):
@@ -97,14 +80,15 @@ def build_thread(force=False):
                           "Plus/Pro plan), sign in, then try again.")
         return
 
-    cmd = ["/bin/bash", str(HOME / "run.sh")] + (["--force"] if force else [])
+    cmd = [sys.executable, str(HOME / "pipeline.py"), "digest"] \
+        + (["--force"] if force else [])
     try:
         proc = subprocess.Popen(cmd, cwd=str(HOME), env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True,
                                 bufsize=1)
     except OSError as exc:
-        set_state(phase="error", message=f"Could not start run.sh: {exc}")
+        set_state(phase="error", message=f"Could not start the pipeline: {exc}")
         return
 
     already = False
@@ -129,24 +113,25 @@ def build_thread(force=False):
     else:
         set_state(phase="error", date=latest,
                   message=STATE["message"] or
-                          f"run.sh exited with status {proc.returncode}.")
+                          f"the pipeline exited with status {proc.returncode}.")
 
 
 def learn_thread():
     set_state(learn="running", learn_message="Reading your picks...")
     env = resolve_env()
     try:
-        proc = subprocess.run(["/bin/bash", str(HOME / "learn.sh")],
-                              cwd=str(HOME), env=env, capture_output=True,
-                              text=True, timeout=900)
+        proc = subprocess.run(
+            [sys.executable, str(HOME / "pipeline.py"), "learn"],
+            cwd=str(HOME), env=env, capture_output=True, text=True,
+            timeout=900)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        set_state(learn="error", learn_message=f"learn.sh failed: {exc}")
+        set_state(learn="error", learn_message=f"learn failed: {exc}")
         return
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode != 0:
         set_state(learn="error", learn_message=out.strip()[-600:] or "failed")
         return
-    if "No picks recorded yet" in out:
+    if "Nothing marked yet" in out or "No picks recorded yet" in out:
         set_state(learn="done",
                   learn_message="No picks recorded yet — mark a few papers as "
                                 "downloaded first.")

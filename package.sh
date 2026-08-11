@@ -5,8 +5,8 @@
 #    ./package.sh              writes ~/Desktop/arxiv-digest.zip
 #    ./package.sh /some/dir    writes it somewhere else
 #
-#  The zip contains the program, a sample digest, and Install.command. It does
-#  NOT contain your own picks, preferences or logs — the recipient starts fresh.
+#  The zip contains the program plus both installers (macOS and Windows). It
+#  does NOT contain your picks, preferences or logs — they start fresh.
 # ---------------------------------------------------------------------------
 
 set -uo pipefail
@@ -22,9 +22,11 @@ trap 'rm -rf "$(dirname "$STAGE")"' EXIT
 mkdir -p "$STAGE"/{digests,runs,logs}
 
 for f in fetch.py record.py pick.py learn.py app.py profile.py \
-         _python.sh _engine.sh \
-         run.sh learn.sh install-app.sh install-schedule.sh package.sh test-fresh.sh \
-         config.default.toml prompt.md learn_prompt.md README.md Install.command; do
+         engine.py pipeline.py schedule.py _python.sh \
+         run.sh learn.sh run.bat learn.bat \
+         install-app.sh package.sh test-fresh.sh \
+         config.default.toml prompt.md learn_prompt.md README.md \
+         install_mac.command install_windows.bat; do
   if [[ -f "$DIR/$f" ]]; then
     cp "$DIR/$f" "$STAGE/$f"
   else
@@ -39,7 +41,7 @@ done
 #
 # Also excluded: config.toml, picks.jsonl, preferences.md, library.md, logs.
 # The recipient starts with their own empty history.
-chmod +x "$STAGE"/*.sh "$STAGE"/*.py "$STAGE/Install.command" 2>/dev/null
+chmod +x "$STAGE"/*.sh "$STAGE"/*.py "$STAGE/install_mac.command" 2>/dev/null
 
 # Fail loudly rather than shipping a broken zip: every file the scripts source
 # or import must actually be staged.
@@ -48,7 +50,9 @@ for need in $(grep -ho '\$DIR/_[a-z]*\.sh' "$DIR"/*.sh | sed 's|.*/||' | sort -u
   [[ -f "$STAGE/$need" ]] || missing="$missing $need"
 done
 for need in fetch.py pick.py profile.py record.py learn.py app.py \
-            config.default.toml prompt.md learn_prompt.md; do
+            engine.py pipeline.py schedule.py \
+            config.default.toml prompt.md learn_prompt.md \
+            install_mac.command install_windows.bat; do
   [[ -f "$STAGE/$need" ]] || missing="$missing $need"
 done
 if [[ -n "$missing" ]]; then
@@ -63,38 +67,46 @@ arXiv nightly digest
 Reads the arXiv sections you choose every weeknight and writes you a short
 digest of the few papers worth downloading.
 
-1.  Move this whole folder somewhere sensible (your home folder is fine).
 
-2.  Double-click  Install.command
+INSTALLING
+----------
 
-    If macOS says it "cannot be opened because it is from an unidentified
-    developer", right-click (or control-click) Install.command and choose
-    Open, then click Open in the dialog. That only happens the first time.
+  On a Mac        double-click   install_mac.command
+  On Windows      double-click   install_windows.bat
 
-3.  Answer the two prompts. Takes under a minute.
+  Mac: if macOS says it "cannot be opened because it is from an unidentified
+  developer", right-click (or control-click) install_mac.command and choose
+  Open, then click Open in the dialog. That only happens the first time.
 
-4.  Open "arXiv Digest" from your Applications folder. It walks you through
-    the rest: signing in, whose work to follow, and which arXiv sections
-    to read.
+  Windows: if SmartScreen warns you, click "More info" then "Run anyway".
 
-One prerequisite the installer cannot fix for you:
+Answer the couple of prompts. Takes under a minute. Then open "arXiv Digest"
+(Applications on a Mac, Desktop on Windows) and it walks you through the rest:
+signing in, whose work to follow, which arXiv sections, and where to save PDFs.
 
-  * Python 3.11 or newer  —  macOS ships 3.9, which is too old.
-                             Get one from https://www.python.org/downloads/
 
-You also need ONE of these, to do the reading. Use whichever subscription you
-already pay for — no API key, nothing extra to buy. The setup screen checks
-this and tells you exactly what to do:
+WHAT YOU NEED FIRST
+-------------------
 
-  * ChatGPT Plus / Pro    npm install -g @openai/codex
-                          then run `codex` and choose "Sign in with ChatGPT"
+  * Python 3.11 or newer
+      Mac ships 3.9, which is too old. Windows usually has none.
+      Get one from https://www.python.org/downloads/
+      On Windows, tick "Add python.exe to PATH" during setup.
 
-  * Claude Pro / Max      curl -fsSL https://claude.ai/install.sh | bash
-                          then run `claude` and sign in
+  * ONE of these, to do the reading. Use whichever subscription you already
+    pay for - no API key, nothing extra to buy:
 
-Everything ends up in ~/arxiv-digest, and an app called "arXiv Digest" appears
-in your Applications folder. Nothing is installed system-wide, and no
-administrator password is needed.
+      ChatGPT Plus / Pro    npm install -g @openai/codex
+                            then run:  codex
+                            and choose "Sign in with ChatGPT"
+
+      Claude Pro / Max      Mac:      curl -fsSL https://claude.ai/install.sh | bash
+                            Windows:  irm https://claude.ai/install.ps1 | iex
+                            then run:  claude    and sign in
+
+The installer checks both and tells you exactly what to do if either is
+missing. Everything ends up in your home folder under arxiv-digest, nothing is
+installed system-wide, and no administrator password is needed.
 
 Full details are in README.md.
 TXT
@@ -110,4 +122,4 @@ echo
 echo "Wrote $ZIP  ($SIZE)"
 echo
 echo "Send it however is easiest — email, AirDrop, Dropbox, iMessage."
-echo "He unzips it, double-clicks Install.command, and answers two prompts."
+echo "They unzip it and double-click install_mac.command or install_windows.bat."

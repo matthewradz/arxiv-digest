@@ -1,0 +1,10 @@
+# Windows batch files must keep CRLF endings: with bare LF, cmd.exe mis-parses
+# labels and multi-line blocks, and the installer fails in confusing ways.
+*.bat text eol=crlf
+
+# Everything else stays LF, including the macOS installer.
+*.sh        text eol=lf
+*.command   text eol=lf
+*.py        text eol=lf
+*.md        text eol=lf
+*.toml      text eol=lf

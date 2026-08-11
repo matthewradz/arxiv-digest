@@ -1,6 +1,7 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
-#  Double-click this file to install the arXiv digest.
+#  Double-click this file to install the arXiv digest on macOS.
+#  (Windows users: run install_windows.bat instead.)
 #
 #  It copies everything to ~/arxiv-digest, builds "arXiv Digest.app" in your
 #  Applications folder, and offers to run it automatically each weeknight.
@@ -94,8 +95,9 @@ fi
 if [[ -z "${SKIP:-}" ]]; then
   mkdir -p "$DEST"/{runs,digests,logs}
   for f in fetch.py record.py pick.py learn.py app.py profile.py \
-           _python.sh _engine.sh \
-           run.sh learn.sh install-app.sh install-schedule.sh package.sh test-fresh.sh \
+           engine.py pipeline.py schedule.py _python.sh \
+           run.sh learn.sh run.bat learn.bat \
+           install-app.sh package.sh test-fresh.sh \
            config.default.toml prompt.md learn_prompt.md README.md; do
     [[ -f "$f" ]] && cp "$f" "$DEST/$f"
   done
@@ -141,11 +143,11 @@ echo
 read -r -p "  Set up the automatic 9pm run? [Y/n] " ans
 case "${ans:-y}" in
   [nN]*) dim "  On demand only. Turn it on later with:"
-         dim "    $DEST/install-schedule.sh" ;;
-  *)     if (cd "$DEST" && ./install-schedule.sh 21 0 >/dev/null 2>&1); then
+         dim "    python3 $DEST/schedule.py install" ;;
+  *)     if (cd "$DEST" && "$PY" schedule.py install 21 0 >/dev/null 2>&1); then
            ok "scheduled for 21:00, Monday to Friday"
-           dim "  change the time:  $DEST/install-schedule.sh 20 30"
-           dim "  turn it off:      $DEST/install-schedule.sh --remove"
+           dim "  change the time:  python3 $DEST/schedule.py install 20 30"
+           dim "  turn it off:      python3 $DEST/schedule.py remove"
          else
            bad "could not schedule it; run.sh and the app still work"
          fi ;;

@@ -15,13 +15,26 @@ create, nothing uploaded.
 
 ## Installing
 
+Runs on **macOS and Windows** (and Linux from the command line).
+
+From the zip (`./package.sh` builds it), double-click the one for your system:
+
+| | |
+|---|---|
+| macOS | `install_mac.command` |
+| Windows | `install_windows.bat` |
+
+Or from a clone:
+
 ```bash
 git clone <this-repo> ~/arxiv-digest
 cd ~/arxiv-digest
-./install-app.sh          # puts "arXiv Digest" in ~/Applications
+./install-app.sh                    # macOS: puts "arXiv Digest" in ~/Applications
+python3 schedule.py install         # optional: run it automatically
 ```
 
-Then open **arXiv Digest**. On first run it walks you through three steps:
+Then open **arXiv Digest** — Applications on a Mac, Desktop on Windows. On first
+run it walks you through:
 
 1. **Sign in** — checks whether Claude Code or Codex CLI is installed and
    actually working, and tells you what to run if not.
@@ -35,8 +48,9 @@ Then open **arXiv Digest**. On first run it walks you through three steps:
 Then it builds your first digest. You can revisit all of it later via
 **Settings** at the bottom of the page.
 
-Requires macOS and Python 3.11+. To send it to someone who won't use git, run
-`./package.sh` for a zip with a double-clickable installer.
+Requires Python 3.11+ and either Claude Code or Codex CLI. To send it to someone
+who won't use git, run `./package.sh` — the zip carries both installers, so the
+same file works for a Mac or a Windows PC.
 
 ## Using it
 
@@ -53,9 +67,12 @@ do the same job and write the same files:
 
 ```bash
 cd ~/arxiv-digest
-./run.sh              # build tonight's digest
+./run.sh              # macOS/Linux — build tonight's digest
+run.bat               # Windows — the same thing
 ./run.sh --open       # build it and open the markdown
 python3 app.py        # same as the app
+
+python3 pipeline.py digest    # what both wrappers actually call
 ```
 
 Takes a couple of minutes. The digest lands in `digests/YYYY-MM-DD.md`, named
@@ -69,23 +86,32 @@ running is optional — it only decides whether you wait 2-3 minutes or find it
 ready.
 
 ```bash
-./install-schedule.sh           # every weeknight at 21:00
-./install-schedule.sh 20 30     # or 20:30
-./install-schedule.sh --remove  # back to on-demand only
+python3 schedule.py install        # every weeknight at 21:00
+python3 schedule.py install 20 30  # or 20:30
+python3 schedule.py remove         # back to on-demand only
+python3 schedule.py status         # is it scheduled?
 ```
 
-It installs a launchd agent (`~/Library/LaunchAgents/com.arxivdigest.nightly.plist`)
-that runs `run.sh --notify` at that time Monday to Friday, and posts a macOS
-notification when the digest is ready. arXiv announces Sunday through Thursday
-evening, which produces the Monday-to-Friday listings, so nothing is scheduled at
-the weekend. If a run finds a listing it has already digested it exits quietly.
+One command, three backends: **launchd** on macOS, **Task Scheduler** on Windows,
+**cron** on Linux. Either way it runs `pipeline.py digest --notify` Monday to
+Friday and raises a desktop notification when the digest is ready. arXiv
+announces Sunday through Thursday evening, which produces the Monday-to-Friday
+listings, so nothing is scheduled at the weekend. A run that finds a listing it
+has already digested exits quietly.
 
 Unattended output goes to `logs/scheduler.out.log` and `logs/DATE.log`. To test
 it without waiting for 21:00:
 
 ```bash
-launchctl start com.arxivdigest.nightly   # then watch logs/scheduler.out.log
+launchctl start com.arxivdigest.nightly          # macOS
+schtasks /Run /TN "arXiv digest nightly"         # Windows
 ```
+
+**One gotcha worth knowing**, since it cost a silent failure here: launchd does
+not set `USER` or `LOGNAME`, and without `USER` the model CLI cannot find its
+stored login and dies with *"Not logged in · Please run /login"* — which looks
+like an auth problem but is a missing environment variable. `schedule.py` sets
+them. If you ever hand-write the plist, don't drop them.
 
 **One gotcha worth knowing**, since it cost a silent failure here: launchd does
 not set `USER` or `LOGNAME`, and without `USER` the model CLI cannot find its
@@ -285,19 +311,20 @@ read** — including `brief.md`, the exact input the digest was written from.
 | `prompt.md` | ~120 | what the digest should say and how briefly. Plain English |
 | `learn_prompt.md` | ~60 | how to turn your picks into `preferences.md` |
 | `fetch.py` | ~500 | feed parsing, name matching, scoring, briefing. No model |
-| `run.sh` | ~130 | the nightly pipeline: fetch → model → digest → library |
 | `app.py` | ~1100 | local reader: setup wizard, digest page, pick buttons |
+| `pipeline.py` | ~250 | the nightly run, cross-platform. `run.sh`/`run.bat` just call it |
+| `engine.py` | ~150 | finds and drives Claude Code or Codex CLI on any OS |
+| `schedule.py` | ~230 | launchd / Task Scheduler / cron behind one command |
 | `pick.py` | ~200 | records what you wanted; the one source of truth for picks |
 | `record.py` | ~120 | writes `library.md` from a digest |
 | `learn.py` | ~200 | the shown-vs-picked statistics report |
 | `learn.sh` | ~80 | runs the report through the model into `preferences.md` |
 | `profile.py` | ~380 | builds author/topic lists from a real corpus (OpenAlex) |
-| `_engine.sh` | ~90 | picks Claude Code or Codex CLI, whichever is installed |
 | `_python.sh` | ~35 | finds a Python 3.11+ (macOS ships 3.9) |
 | `install-app.sh` | ~90 | builds the clickable `arXiv Digest.app` |
-| `install-schedule.sh` | ~110 | the weeknight launchd job |
 | `package.sh` | ~110 | builds the shareable zip |
-| `Install.command` | ~160 | double-clickable installer inside the zip |
+| `install_mac.command` | ~170 | double-clickable installer, macOS |
+| `install_windows.bat` | ~180 | double-clickable installer, Windows |
 | `test-fresh.sh` | ~100 | stash your data, try the first-run flow, restore |
 
 Produced at runtime, none of it committed: `digests/DATE.md`, `library.md`,
@@ -355,7 +382,8 @@ learning over, delete `picks.jsonl` and `preferences.md`.
 ./package.sh          # writes ~/Desktop/arxiv-digest.zip
 ```
 
-They unzip it, double-click `Install.command`, and answer two prompts. The zip
+They unzip it, double-click `install_mac.command` or `install_windows.bat`,
+and answer two prompts. The zip
 deliberately leaves out your picks, preferences and logs, so they start with
 their own empty history — but it does include one sample digest so the format is
 visible before the first real run.
