@@ -23,6 +23,12 @@ import engine
 
 HOME = Path(__file__).resolve().parent
 
+# Run straight from a terminal or the scheduler there is no parent to set
+# PYTHONIOENCODING, and a Windows console encodes stdout as cp1252 - one Greek
+# letter in a title would end the run on a UnicodeEncodeError.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def say(*a):
     print(*a, flush=True)
@@ -74,6 +80,7 @@ def run_python(script, *args, log=None):
     """Run one of our own scripts with the same interpreter we are using."""
     cmd = [sys.executable, str(HOME / script), *args]
     proc = subprocess.run(cmd, cwd=str(HOME), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace",
                           env=engine.env_for_subprocess())
     if log and proc.stderr:
         with open(log, "a", encoding="utf-8") as fh:

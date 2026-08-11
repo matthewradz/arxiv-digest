@@ -142,6 +142,10 @@ def env_for_subprocess():
             env.setdefault("USER", who)
             env.setdefault("LOGNAME", who)
     env["PYTHON"] = sys.executable
+    # Windows gives a piped stdout the locale encoding, cp1252, so printing a
+    # title with a Greek letter or a typographic dash raises UnicodeEncodeError
+    # and takes the run down. arXiv titles are full of both.
+    env.setdefault("PYTHONIOENCODING", "utf-8")
     claude = find("claude")
     if claude:
         env.setdefault("CLAUDE_BIN", claude)

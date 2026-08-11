@@ -87,6 +87,7 @@ def build_thread(force=False):
         proc = subprocess.Popen(cmd, cwd=str(HOME), env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True,
+                                encoding="utf-8", errors="replace",
                                 bufsize=1)
     except OSError as exc:
         set_state(phase="error", message=f"Could not start the pipeline: {exc}")
@@ -124,7 +125,7 @@ def learn_thread():
         proc = subprocess.run(
             [sys.executable, str(HOME / "pipeline.py"), "learn"],
             cwd=str(HOME), env=env, capture_output=True, text=True,
-            timeout=900)
+            encoding="utf-8", errors="replace", timeout=900)
     except (OSError, subprocess.TimeoutExpired) as exc:
         set_state(learn="error", learn_message=f"learn failed: {exc}")
         return
@@ -415,7 +416,8 @@ def probe_engine(which, timeout=120):
                "Reply with exactly: READY"]
     try:
         proc = subprocess.run(cmd, cwd=str(HOME), env=env, capture_output=True,
-                              text=True, timeout=timeout)
+                              text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout)
     except subprocess.TimeoutExpired:
         return {"installed": True, "signed_in": False,
                 "detail": "timed out — try running it once in a terminal first"}
@@ -433,7 +435,8 @@ def run_profile(cli_args, timeout=300):
     try:
         proc = subprocess.run(
             [sys.executable, str(HOME / "profile.py")] + cli_args,
-            cwd=str(HOME), capture_output=True, text=True, timeout=timeout)
+            cwd=str(HOME), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"lookup failed: {exc}"
     if proc.returncode != 0:
