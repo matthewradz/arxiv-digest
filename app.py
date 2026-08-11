@@ -16,6 +16,7 @@ tools and this app stay interchangeable.
 import argparse
 import html
 import json
+import os
 import re
 import subprocess
 import sys
@@ -986,6 +987,9 @@ def setup_page():
     n_sections = len(ARXIV_TAXONOMY) + sum(len(s) for _, _, s in ARXIV_TAXONOMY)
     dl = pick.download_dir()
     current_dl = html.escape(str(dl)) if dl else ''
+    # The Claude Code installer differs by OS; show whichever this machine needs.
+    claude_install = ("irm https://claude.ai/install.ps1 | iex" if os.name == "nt"
+                       else "curl -fsSL https://claude.ai/install.sh | bash")
 
     return page("Set up your digest", f"""
 <header><div class="bar"><h1>arXiv digest — setup</h1>
@@ -1003,7 +1007,7 @@ Install whichever matches your plan, run it once to sign in, then press Check.
 <b>ChatGPT Plus / Pro:</b> <code>npm install -g @openai/codex</code> then run
 <code>codex</code> and choose "Sign in with ChatGPT".
 <br>
-<b>Claude Pro / Max:</b> <code>curl -fsSL https://claude.ai/install.sh | bash</code>
+<b>Claude Pro / Max:</b> <code>{claude_install}</code>
 then run <code>claude</code> and sign in.
 <br><br>
 Sign in with the <i>subscription</i>, not an API key — an API key bills

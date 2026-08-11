@@ -95,6 +95,10 @@ def env_for_subprocess():
     USER and LOGNAME matter more than they look: without USER the model CLI
     cannot find its stored login and fails with "Not logged in", which reads
     like an auth problem but is a missing environment variable.
+
+    Also carries CLAUDE_BIN/CODEX_BIN, resolved here rather than left for the
+    caller to work out a second time - app.py's setup check reads these to
+    report what is actually installed.
     """
     env = dict(os.environ)
     env["PATH"] = search_path()
@@ -108,6 +112,12 @@ def env_for_subprocess():
             env.setdefault("USER", who)
             env.setdefault("LOGNAME", who)
     env["PYTHON"] = sys.executable
+    claude = find("claude")
+    if claude:
+        env.setdefault("CLAUDE_BIN", claude)
+    codex = find("codex")
+    if codex:
+        env.setdefault("CODEX_BIN", codex)
     return env
 
 

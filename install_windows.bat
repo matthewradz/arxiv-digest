@@ -40,7 +40,11 @@ if not defined PY (
   pause
   exit /b 1
 )
-for /f "delims=" %%V in ('"%PY%" -c "import sys;print(\"%%d.%%d\"%%sys.version_info[:2])"') do set "PYVER=%%V"
+REM Via a temp file, not for /f: cmd mis-tokenizes a for /f command that opens
+REM with a quoted path, so the version check silently printed nothing at all.
+"%PY%" -c "import sys;print(sys.version.split()[0])" > "%TEMP%\_arxiv_pyver.txt" 2>nul
+set /p "PYVER=" < "%TEMP%\_arxiv_pyver.txt"
+del "%TEMP%\_arxiv_pyver.txt" >nul 2>&1
 echo   [ok] Python !PYVER!  -  %PY%
 
 REM --- a model CLI -----------------------------------------------------------
@@ -85,8 +89,11 @@ echo   Installing to %DEST%
 if not exist "%DEST%" mkdir "%DEST%"
 for %%D in (runs digests logs) do if not exist "%DEST%\%%D" mkdir "%DEST%\%%D"
 
+if not exist "%DEST%\examples" mkdir "%DEST%\examples"
+copy /Y "examples\*.toml" "%DEST%\examples\" >nul 2>&1
+
 for %%F in (fetch.py record.py pick.py learn.py app.py profile.py engine.py
-            pipeline.py schedule.py run.bat learn.bat
+            configedit.py examples.py pipeline.py schedule.py run.bat learn.bat
             config.default.toml prompt.md learn_prompt.md README.md) do (
   if exist "%%F" copy /Y "%%F" "%DEST%\%%F" >nul
 )
@@ -111,12 +118,19 @@ set "PYW=%PY:python.exe=pythonw.exe%"
 if not exist "%PYW%" for /f "delims=" %%W in ('where pythonw.exe 2^>nul') do set "PYW=%%W"
 if not exist "%PYW%" set "PYW=%PY%"
 
+REM Ask Windows for the real Desktop folder rather than assuming
+REM %USERPROFILE%\Desktop - OneDrive Known Folder Move relocates it to
+REM %USERPROFILE%\OneDrive\Desktop, and checking the wrong path makes a
+REM shortcut that was created just fine look like it failed.
+for /f "delims=" %%D in ('powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"') do set "DESKTOP=%%D"
+if not defined DESKTOP set "DESKTOP=%USERPROFILE%\Desktop"
+
 REM Build the shortcut from a generated .ps1 rather than an inline -Command:
 REM escaping quotes through cmd into PowerShell is the single most fragile
 REM thing in this script, and a temp file sidesteps it entirely.
 set "PS1=%TEMP%\arxiv_digest_shortcut.ps1"
 > "%PS1%" echo $w = New-Object -ComObject WScript.Shell
->> "%PS1%" echo $lnk = $w.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\arXiv Digest.lnk')
+>> "%PS1%" echo $lnk = $w.CreateShortcut('%DESKTOP%\arXiv Digest.lnk')
 >> "%PS1%" echo $lnk.TargetPath = '%PYW%'
 >> "%PS1%" echo $lnk.Arguments = '"%DEST%\app.py"'
 >> "%PS1%" echo $lnk.WorkingDirectory = '%DEST%'
@@ -125,7 +139,7 @@ set "PS1=%TEMP%\arxiv_digest_shortcut.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%" >nul 2>&1
 del "%PS1%" >nul 2>&1
 
-if exist "%USERPROFILE%\Desktop\arXiv Digest.lnk" (
+if exist "%DESKTOP%\arXiv Digest.lnk" (
   echo   [ok] "arXiv Digest" shortcut is on your Desktop
 ) else (
   echo   [!] could not make a Desktop shortcut - no problem, start it with:
