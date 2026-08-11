@@ -70,6 +70,29 @@ def get(path, **params):
     raise urllib.error.URLError("gave up after three attempts")
 
 
+def explain(exc):
+    """
+    Turn an OpenAlex failure into something worth reading.
+
+    OpenAlex meters the free tier - a thousand requests a day per IP, reset at
+    midnight UTC - and answers an exhausted budget with a bare 429. Looking a
+    few people up costs a handful of requests, so this is rare, but "HTTP Error
+    429: Too Many Requests" tells you neither what ran out nor when it returns.
+    """
+    if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+        wait = exc.headers.get("Retry-After", "")
+        when = ""
+        if wait.isdigit():
+            hours, minutes = divmod(int(wait) // 60, 60)
+            when = (f" It resets in about {hours}h{minutes:02d}m"
+                    if hours else f" It resets in about {minutes} minutes")
+        return ("OpenAlex's daily free allowance for this network is used up."
+                f"{when} Nothing is wrong with the app or your setup - "
+                "the digest itself does not use OpenAlex, only this lookup "
+                "does, so tonight's digest will still build.")
+    return f"Could not reach OpenAlex: {exc}"
+
+
 def scholar_hint(text):
     """A Scholar URL carries no name, so there is nothing to look up from it."""
     return None if "scholar.google" in text else text
@@ -581,7 +604,7 @@ def main():
         try:
             matches = find_authors(nm, institution=where)
         except (urllib.error.URLError, TimeoutError) as exc:
-            print(f"Could not reach OpenAlex: {exc}", file=sys.stderr)
+            print(explain(exc), file=sys.stderr)
             return 2
         if not matches:
             extra = f" at {where}" if where else ""
@@ -639,7 +662,7 @@ def main():
             corpora.append(fetch_corpus(prof["id"], max_works=args.max_works,
                                         inst_id=prof.get("inst_id", "")))
         except (urllib.error.URLError, TimeoutError) as exc:
-            print(f"Could not read the corpus: {exc}", file=sys.stderr)
+            print(explain(exc), file=sys.stderr)
             return 2
 
     corpus, overlap = merge_corpora(corpora)
