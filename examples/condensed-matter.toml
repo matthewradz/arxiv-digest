@@ -1,0 +1,198 @@
+# ============================================================================
+#  Condensed matter / soft matter starter config
+#
+#  Merge this into your config.toml if you work in these areas, then prune it.
+#  Setup step 2 ("whose work should it follow?") is usually better, because it
+#  builds the list from a real publication record instead of someone's guess.
+#
+#      python3 examples.py add condensed-matter
+# ============================================================================
+
+[authors]
+names = [
+  # --- soft matter, membranes, elasticity, liquid crystals ---
+  "David Nelson", "Tom Lubensky", "Mark Bowick", "Mehran Kardar",
+  "Xiaoming Mao", "Andrej Kosmrlj", "Vincenzo Vitelli", "Anton Souslov",
+  "Bryan Chen", "L. Mahadevan", "Michael Brenner", "Randall Kamien",
+  "Jacques Prost", "Jean-Francois Joanny", "Pierre Sens", "Markus Deserno",
+  "Ramin Golestanian", "Sidney Nagel", "Andrea Liu", "Matthieu Wyart",
+  "Cristina Marchetti", "Robijn Bruinsma", "Alex Levine", "Peter Olmsted",
+
+  # --- active matter ---
+  "John Toner", "Yuhai Tu", "Sriram Ramaswamy", "Hugues Chate",
+  "Julien Tailleur", "Michael Cates", "Julia Yeomans", "Ananyo Maitra",
+  "Erwin Frey", "Chase Broedersz", "Aparna Baskaran", "Jorn Dunkel",
+  "William Irvine", "Frank Julicher", "Karsten Kruse", "Suriyanarayanan Vaikuntanathan",
+  "Nikta Fakhri", "Zvonimir Dogic", "Daniel Needleman", "Sriram Sundararajan",
+
+  # --- gauge theories, fractons, duality ---
+  "Michael Pretko", "Michael Hermele", "Rahul Nandkishore", "Andrey Gromov",
+  "Xie Chen", "Kevin Slagle", "Yizhi You", "Han Ma", "Shriya Pai",
+  "Nathan Seiberg", "Shu-Heng Shao", "Zohar Komargodski", "Dam Thanh Son",
+  "Sung-Sik Lee", "Michael Levin", "Nathan Benjamin",
+
+  # --- critical phenomena, RG, CFT ---
+  "John Cardy", "Slava Rychkov", "David Simmons-Duffin", "Silviu Pufu",
+  "Igor Klebanov", "Ettore Vicari", "Andrea Pelissetto", "Max Metlitski",
+  "Bertrand Halperin", "Subir Sachdev", "Eduardo Fradkin", "Steven Kivelson",
+  "T. Senthil", "Cenke Xu", "Chao-Ming Jian", "Zhen Bi", "Yin-Chen He",
+
+  # --- spin liquids, quantum magnetism, frustration ---
+  "Leon Balents", "Roderich Moessner", "Frank Pollmann", "Simon Trebst",
+  "Yong Baek Kim", "Achim Rosch", "Yuan-Ming Lu", "Ashvin Vishwanath",
+  "Matthew Fisher", "Christopher Laumann", "Arun Paramekanti", "Natalia Perkins",
+  "Kirill Shtengel", "Steven White", "Johannes Knolle", "Nandini Trivedi",
+
+  # --- superconductivity, pairing, correlated metals ---
+  "Andrey Chubukov", "Rafael Fernandes", "Jorg Schmalian", "Dmitrii Maslov",
+  "Peter Hirschfeld", "Boris Spivak", "Egor Babaev", "Srinivas Raghu",
+  "Erez Berg", "Steven Simon", "Anton Burkov", "Pavel Volkov",
+  "Debanjan Chowdhury", "Zhi-Xun Shen", "Ali Yazdani", "Pablo Jarillo-Herrero",
+  "Andrea Young", "Long Ju", "Jia Li", "Dmitri Efetov",
+
+  # --- quantum Hall, anyons, moire, flat bands ---
+  "Duncan Haldane", "Nicholas Read", "Jainendra Jain", "Ady Stern",
+  "Netanel Lindner", "Chetan Nayak", "Barry Bradlyn", "Ganpathy Murthy",
+  "Siddharth Parameswaran", "Zlatko Papic", "Nicolas Regnault",
+  "B. Andrei Bernevig", "Liang Fu", "Allan MacDonald",
+
+  # --- topological states of matter ---
+  "Charles Kane", "Eugene Mele", "Taylor Hughes", "Joel Moore",
+  "Xiao-Liang Qi", "Andreas Ludwig", "Alexander Altland", "Carlo Beenakker",
+  "Anton Akhmerov", "Jason Alicea", "Roman Lutchyn", "Yuval Oreg",
+  "Felix von Oppen", "Xiao-Gang Wen", "Alexei Kitaev", "Maissam Barkeshli",
+
+  # --- disorder, glasses, localization, thermalization ---
+  "David Huse", "Ehud Altman", "Anushya Chandran", "Sarang Gopalakrishnan",
+  "Maksym Serbyn", "Dmitry Abanin", "Vadim Oganesyan", "Giorgio Parisi",
+  "Ludovic Berthier", "Giulio Biroli", "Francesco Zamponi", "Camille Scalliet",
+  "Vedika Khemani", "Adam Nahum", "Curt von Keyserlingk",
+
+  # --- cold atoms, superfluids, BEC-BCS ---
+  "Victor Gurarie", "Ana Maria Rey", "Wilhelm Zwerger", "Martin Zwierlein",
+  "Cheng Chin", "Waseem Bakr", "Tin-Lun Ho", "Meera Parish", "Jesper Levinsen",
+  "Georg Bruun", "Eugene Demler", "Mikhail Lukin", "Immanuel Bloch",
+  "Randall Hulet", "Peter Zoller", "Monika Aidelsburger",
+
+  # --- soft matter / liquid crystals, continued ---
+  "Ivan Smalyukh", "Noel Clark", "Paul Goldbart", "Daniel Arovas",
+  "Andrew Lucas", "Meng Cheng",
+
+  # Add your own people here. Setup step 2 ("whose work should it follow?")
+  # appends a researcher's real coauthors automatically.
+]
+
+[[topics]]
+name = "gauge-theories"
+weight = 4.0
+keywords = [
+  "gauge theor", "lattice gauge", "emergent gauge", "gauge field",
+  "fracton", "deconfin", "confinement transition", "higher-form symmetry",
+  "Chern-Simons", "\\bdualit(y|ies)\\b", "\\bZ_?2 gauge", "compact QED",
+  "tensor gauge", "subsystem symmetry", "topological field theor",
+]
+
+[[topics]]
+name = "critical-phenomena"
+weight = 4.0
+keywords = [
+  "critical exponent", "criticalit", "renormalization group", "\\bRG flow",
+  "universality class", "scaling function", "conformal field theor", "\\bCFT\\b",
+  "fixed point", "quantum critical", "tricritical", "multicritical",
+  "Kosterlitz", "\\bBKT\\b", "finite-size scaling", "epsilon expansion",
+  "large-N expansion", "anomalous dimension", "crossover exponent",
+]
+
+[[topics]]
+name = "membranes-elasticity"
+weight = 4.5
+keywords = [
+  "membrane", "tethered", "crumpl", "buckl", "bending rigidity", "flexural",
+  "elastic sheet", "thin shell", "\\bribbon", "nematic elastomer",
+  "Gaussian curvature", "geometric frustration", "smectic", "liquid crystal",
+  "columnar phase", "\\bcholesteric", "hexatic", "disclination", "dislocation",
+  "elasticity theor", "odd elasticity", "auxetic", "\\bkirigami|\\borigami",
+]
+
+[[topics]]
+name = "superconductivity"
+weight = 4.0
+keywords = [
+  "superconduct", "\\bpairing\\b", "Cooper pair", "\\bBCS\\b", "BEC-BCS",
+  "\\bFFLO\\b", "\\bvortex\\b|vortices", "Josephson", "pair density wave",
+  "Eliashberg", "superfluid", "Meissner", "\\bpseudogap", "\\bpair fluctuation",
+  "unconventional supercond", "topological supercond", "\\bT_?c\\b",
+]
+
+[[topics]]
+name = "spin-liquids-magnetism"
+weight = 4.5
+keywords = [
+  "spin liquid", "Kitaev", "frustrated magnet", "quantum magnet", "spinon",
+  "\\bmagnon", "kagome", "triangular lattice", "resonating valence",
+  "\\bRVB\\b", "spin ice", "order by disorder", "antiferromagnet",
+  "Heisenberg model", "\\bspin-1/2 chain", "\\bskyrmion", "spin nematic",
+  "quantum dimer", "\\bmonopole", "altermagnet",
+]
+
+[[topics]]
+name = "quantum-hall"
+weight = 4.5
+keywords = [
+  "quantum Hall", "Landau level", "composite fermion", "\\banyon",
+  "non-Abelian", "Laughlin", "\\bmoir[eé]", "Chern band", "flat band",
+  "fractional Chern", "\\bChern number", "\\bHall conductance", "edge state",
+  "\\bWigner crystal", "\\bhalf-filled", "\\bTBG\\b|twisted bilayer",
+]
+
+[[topics]]
+name = "topological-states"
+weight = 4.0
+keywords = [
+  "topological insulator", "topological order", "topological phase",
+  "topological invariant", "\\bMajorana", "\\bWeyl", "Dirac semimetal",
+  "\\bSPT\\b", "symmetry-protected", "band topology", "Berry curvature",
+  "\\banomaly\\b", "\\bnodal", "higher-order topolog", "\\bquantum spin Hall",
+  "\\bnon-Hermitian topolog",
+]
+
+[[topics]]
+name = "active-matter"
+weight = 4.5
+keywords = [
+  "active matter", "active nematic", "\\bflocking", "self-propelled",
+  "\\bVicsek", "motilit", "\\bswarm", "bacterial suspension", "cytoskelet",
+  "molecular motor", "non-reciprocal", "chiral active", "active turbulence",
+  "\\bMIPS\\b|motility-induced", "\\bactive gel", "\\btissue mechanics",
+  "\\bcell migration", "\\bpolar order.*active|\\bactive.*polar order",
+]
+
+[[topics]]
+name = "quantum-information"
+weight = 4.0
+keywords = [
+  "quantum error correction", "\\bstabilizer\\b", "surface code", "\\bqubit",
+  "quantum algorithm", "quantum advantage|quantum supremacy", "\\bdecoherence",
+  "entanglement entropy", "\\bmagic state", "fault-tolerant",
+  "quantum circuit", "variational quantum", "\\bNISQ\\b", "quantum simulator",
+  "randomized benchmarking", "\\bteleportation", "quantum channel",
+  "measurement-induced", "\\bcode distance", "logical qubit",
+]
+
+[[topics]]
+name = "disorder-glasses"
+weight = 2.5
+keywords = [
+  "\\bdisorder", "random field", "\\bglass transition", "spin glass",
+  "\\bjamming", "localization", "many-body localiz", "\\bMBL\\b",
+  "replica symmetry", "\\bRandom bond", "\\bimpurit", "\\bAnderson transition",
+]
+
+[[topics]]
+name = "hydrodynamics-nonequilibrium"
+weight = 2.5
+keywords = [
+  "hydrodynamic", "\\bKPZ\\b", "coarsening", "\\bcoarse-grained",
+  "far from equilibrium", "\\bdriven system", "fluctuation theorem",
+  "\\bentropy production", "\\bstochastic thermodynam", "\\bquench dynamics",
+]

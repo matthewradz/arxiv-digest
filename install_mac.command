@@ -93,9 +93,10 @@ else
 fi
 
 if [[ -z "${SKIP:-}" ]]; then
-  mkdir -p "$DEST"/{runs,digests,logs}
+  mkdir -p "$DEST"/{runs,digests,logs,examples}
+  cp examples/*.toml "$DEST/examples/" 2>/dev/null
   for f in fetch.py record.py pick.py learn.py app.py profile.py \
-           engine.py pipeline.py schedule.py _python.sh \
+           engine.py pipeline.py schedule.py configedit.py examples.py _python.sh \
            run.sh learn.sh run.bat learn.bat \
            install-app.sh package.sh test-fresh.sh \
            config.default.toml prompt.md learn_prompt.md README.md; do

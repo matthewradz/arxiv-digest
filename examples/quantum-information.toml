@@ -1,0 +1,102 @@
+# ============================================================================
+#  Quantum information / quantum computing starter config
+#
+#  Merge this into your config.toml if you work in these areas, then prune it:
+#
+#      python3 examples.py add quantum-information
+#
+#  Setup step 2 ("whose work should it follow?") is usually better, because it
+#  builds the list from a real publication record rather than someone's guess.
+#  Use this if you would rather start from a hand-picked list, or have no
+#  publication record to point at yet.
+# ============================================================================
+
+[authors]
+names = [
+  # --- error correction and fault tolerance ---
+  "John Preskill", "Daniel Gottesman", "Barbara Terhal", "David Poulin",
+  "Robert Koenig", "Sergey Bravyi", "Jay Gambetta", "Earl Campbell",
+  "Benjamin Brown", "Michael Beverland", "Nicolas Delfosse", "Hector Bombin",
+  "Austin Fowler", "Naomi Nickerson", "Dan Browne", "Steve Flammia",
+
+  # --- algorithms and complexity ---
+  "Scott Aaronson", "Umesh Vazirani", "Dorit Aharonov", "Ronald de Wolf",
+  "Andrew Childs", "Ryan Babbush", "Lin Lin", "Nathan Wiebe",
+  "Ashley Montanaro", "Aram Harrow", "Isaac Kim", "Thomas Vidick",
+  "Anand Natarajan", "Henry Yuen", "Ewin Tang", "Sevag Gharibian",
+
+  # --- many-body, simulation and dynamics ---
+  "Ignacio Cirac", "Frank Verstraete", "Norbert Schuch", "Guifre Vidal",
+  "Matthew Hastings", "Vedika Khemani", "Adam Nahum", "Ehud Altman",
+  "Sarang Gopalakrishnan", "Dmitry Abanin", "Maksym Serbyn",
+  "Soonwon Choi", "Wen Wei Ho", "Curt von Keyserlingk", "Michael Gullans",
+
+  # --- hardware and experiment ---
+  "John Martinis", "Michel Devoret", "Robert Schoelkopf", "Andreas Wallraff",
+  "Christopher Monroe", "Rainer Blatt", "Peter Zoller", "Mikhail Lukin",
+  "Misha Lukin", "Jeff Thompson", "Manuel Endres", "Hannes Bernien",
+  "Immanuel Bloch", "Monika Aidelsburger", "Jian-Wei Pan", "Anton Zeilinger",
+
+  # --- information theory and foundations ---
+  "Charles Bennett", "Peter Shor", "Patrick Hayden", "Mark Wilde",
+  "Renato Renner", "Nicolas Gisin", "Stephanie Wehner", "Jonathan Oppenheim",
+  "Matthew Leifer", "Robert Spekkens", "Nicole Yunger Halpern",
+]
+
+[[topics]]
+name = "error-correction"
+weight = 5.0
+keywords = [
+  "quantum error correction", "\\bQEC\\b", "\\bstabilizer", "surface code",
+  "colour code|color code", "\\bLDPC\\b", "fault-tolerant", "logical qubit",
+  "\\bcode distance", "\\bmagic state", "\\bdistillation", "syndrome",
+  "\\bdecoder\\b", "threshold theorem", "\\btransversal gate",
+  "\\bconcatenated code", "\\bfloquet code", "\\bsubsystem code",
+]
+
+[[topics]]
+name = "algorithms-complexity"
+weight = 4.5
+keywords = [
+  "quantum algorithm", "quantum advantage", "quantum supremacy",
+  "\\bVQE\\b|variational quantum", "\\bQAOA\\b", "phase estimation",
+  "amplitude amplification", "quantum walk", "\\bHHL\\b",
+  "quantum machine learning", "\\bBQP\\b", "\\bQMA\\b",
+  "sampling complexity", "\\bdequantiz", "query complexity",
+  "\\boracle separation", "shadow tomography", "classical shadows",
+]
+
+[[topics]]
+name = "hardware-control"
+weight = 4.0
+keywords = [
+  "\\bqubit", "\\btransmon", "\\bfluxonium", "trapped ion", "neutral atom",
+  "\\bRydberg", "superconducting circuit", "\\bcQED\\b", "cavity QED",
+  "\\bgate fidelity", "randomized benchmarking", "\\bcrosstalk",
+  "\\bdecoherence", "\\bT1\\b|\\bT2\\b", "\\bcalibration",
+  "\\bpulse shaping", "quantum control", "\\breadout fidelity",
+]
+
+[[topics]]
+name = "entanglement-information"
+weight = 4.0
+keywords = [
+  "entanglement entropy", "entanglement spectrum", "\\bmutual information",
+  "quantum channel", "channel capacity", "\\bteleportation",
+  "quantum key distribution", "\\bQKD\\b", "\\bBell inequalit",
+  "\\bnonlocality", "\\bcontextuality", "\\bmonogamy",
+  "measurement-induced", "\\bpurification", "\\bmagic\\b|nonstabilizerness",
+  "\\bscrambling", "\\bOTOC\\b", "quantum Fisher information",
+]
+
+[[topics]]
+name = "simulation-many-body"
+weight = 4.0
+keywords = [
+  "quantum simulator", "\\bHamiltonian learning", "tensor network",
+  "\\bMPS\\b|matrix product state", "\\bDMRG\\b", "\\bPEPS\\b",
+  "\\bmany-body localiz", "\\bMBL\\b", "\\bthermalization", "\\bETH\\b",
+  "quantum scars", "\\bFloquet", "\\bdiscrete time crystal",
+  "digital quantum simulation", "\\btrotter", "\\bopen quantum system",
+  "\\bLindblad", "\\bdissipative", "\\bNISQ\\b",
+]

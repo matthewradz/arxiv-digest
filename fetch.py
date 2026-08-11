@@ -214,7 +214,7 @@ def compile_topics(topics):
 
 def followed_archives(cfg):
     """The archives being read, e.g. {"cond-mat"} or {"quant-ph", "hep-th"}."""
-    return {str(f).split(".")[0] for f in cfg.get("feeds", ["cond-mat"])}
+    return {str(f).split(".")[0] for f in cfg.get("feeds", [])}
 
 
 def score_item(item, author_index, topics, cfg, archives=None):
@@ -323,20 +323,28 @@ def one_line_authors(item, limit=6):
 
 
 def write_brief(path, listing_date, items, candidates, cfg, prefs, reader,
-                sections=None):
+                sections=None, topped_up=0):
     counts = {}
     for it in items:
         counts[it["announce"]] = counts.get(it["announce"], 0) + 1
     tally = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
 
     L = []
-    L.append(f"# arXiv {', '.join(sections or ['cond-mat'])} — "
+    L.append(f"# arXiv {', '.join(sections or ['(no sections set)'])} — "
              f"listing for {listing_date}")
     L.append("")
     L.append(f"Announcement contains {len(items)} papers ({tally}).")
     L.append(f"{len(candidates)} cleared the relevance filter "
              f"(min_score={cfg['min_score']}).")
     L.append("")
+    if topped_up:
+        L.append(f"NOTE: the author and topic lists are barely configured, so "
+                 f"only {len(candidates) - topped_up} papers actually matched. "
+                 f"The remaining {topped_up} were added just to give you "
+                 f"something to read — judge them purely on merit, and say in "
+                 f"one line that the digest will sharpen once the reader "
+                 f"profile is set up.")
+        L.append("")
     L.append("Scoring is a keyword/author prefilter only — it is deliberately "
              "generous and makes no judgement about quality. Use the abstracts "
              "below to decide what actually matters.")
@@ -449,8 +457,15 @@ def main():
         xml_text = Path(args.cache).read_text(encoding="utf-8")
         listing_date, items = parse_feed(xml_text)
     else:
+        feeds = [f for f in cfg.get("feeds", []) if str(f).strip()]
+        if not feeds:
+            print("No arXiv sections are configured, so there is nothing to "
+                  "fetch.\nOpen the app and choose sections in setup step 3, "
+                  "or set e.g.\n    feeds = [\"quant-ph\"]\nin config.toml.",
+                  file=sys.stderr)
+            return 4
         merged, listing_date, seen_ids = [], None, set()
-        for archive in cfg.get("feeds", ["cond-mat"]):
+        for archive in feeds:
             try:
                 xml_text = fetch_feed(archive)
             except (urllib.error.URLError, TimeoutError) as exc:
@@ -497,6 +512,22 @@ def main():
     candidates = (fresh_pool[:int(cfg["max_candidates"])]
                   + repl_pool[:int(cfg.get("max_replacements", 6))])
 
+    # A config with no authors and few topics — which is what a fresh install
+    # has until setup step 2 runs — would clear the score floor on almost
+    # nothing and produce an empty digest. Top the shortlist up with the
+    # best-scoring remaining new papers so day one is still useful, and say so
+    # in the briefing rather than pretending these were matches.
+    topped_up = 0
+    floor = int(cfg.get("min_shortlist", 12))
+    if len(candidates) < floor:
+        have = {c["id"] for c in candidates}
+        extra = [it for it in items
+                 if not it["is_replacement"] and it["id"] not in have]
+        extra.sort(key=by_score)
+        add = extra[:floor - len(candidates)]
+        candidates += add
+        topped_up = len(add)
+
     prefs_file = HOME / "preferences.md"
     prefs = prefs_file.read_text(encoding="utf-8") if prefs_file.exists() else ""
     reader = (conf.get("reader", {}) or {}).get("description", "").strip()
@@ -511,7 +542,7 @@ def main():
                     "candidates": candidates}, indent=1, ensure_ascii=False),
         encoding="utf-8")
     write_brief(run_dir / "brief.md", listing_date, items, candidates, cfg,
-                prefs, reader, cfg.get("feeds", ["cond-mat"]))
+                prefs, reader, cfg.get("feeds", []), topped_up)
 
     n_auth = sum(1 for c in candidates if c["matched_authors"])
     print(f"LISTING_DATE {listing_date}")

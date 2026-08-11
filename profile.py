@@ -28,6 +28,7 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
+import configedit
 import fetch  # name_key / pretty_name, so matching agrees with the digest
 
 HOME = Path(__file__).resolve().parent
@@ -326,11 +327,8 @@ def apply_to_config(sug, profiles, corpus_size=0, overlap=None):
     # which let already-listed people get added a second time.
     with open(cfg, "rb") as fh:
         conf = tomllib.load(fh)
-    existing_keys = set()
-    for name in conf.get("authors", {}).get("names", []):
-        k = fetch.name_key(name)
-        if k:
-            existing_keys.add(k)
+    current = configedit.read_authors(text)
+    existing_keys = {k for k in (fetch.name_key(n) for n in current) if k}
 
     fresh = []
     for name, n in sug["coauthors"]:
@@ -339,19 +337,11 @@ def apply_to_config(sug, profiles, corpus_size=0, overlap=None):
             fresh.append((name, n))
             existing_keys.add(k)
 
-    added_authors = 0
+    added_authors = len(fresh)
     if fresh:
-        block = (f"\n  # --- added from the coauthors of {_who(profiles)},\n"
-                 f"  #     with joint-paper counts. Frequency is not interest:\n"
-                 f"  #     prune collaborators whose own papers you would not read. ---\n"
-                 + "".join(f'  "{n}",'.ljust(38) + f"# {c} joint\n"
-                           for n, c in fresh))
-        # insert just before the closing bracket of [authors].names
-        m = re.search(r"(\[authors\]\s*\nnames = \[)(.*?)(\n\])", text, re.S)
-        if not m:
-            raise SystemExit("could not find [authors] names = [ ... ] in config.toml")
-        text = text[:m.end(2)] + block.rstrip("\n") + text[m.end(2):]
-        added_authors = len(fresh)
+        entries = [(n, None) for n in current] + \
+                  [(name, f"{n} joint") for name, n in fresh]
+        text = configedit.set_authors(text, entries)
 
     # The reader description is the biggest single lever on what gets picked,
     # so set it from the profile too rather than leaving the generic default.
@@ -377,18 +367,23 @@ def apply_to_config(sug, profiles, corpus_size=0, overlap=None):
     else:
         text = (f'\n[reader]\ndescription = """{desc}"""\n\n') + text
 
-    if sug["terms"] and "own-corpus" not in text:
-        group = ["", "", "[[topics]]", 'name = "own-corpus"',
-                 "# Phrases taken from the titles of his own papers.",
+    # Check for a real [[topics]] group, not the substring: config.toml's own
+    # comments mention "own-corpus", and a substring test silently skipped
+    # adding the group — quietly dropping the main output of setup step 2.
+    n_terms = 0
+    if sug["terms"] and "own-corpus" not in configedit.topic_names(text):
+        lines = ["[[topics]]", 'name = "own-corpus"',
+                 "# Recurring phrases from the titles of their own papers.",
                  "weight = 4.0", "keywords = ["]
-        for term, n in sug["terms"]:
+        for term, _ in sug["terms"]:
             esc = term.replace("\\", "\\\\").replace('"', '\\"')
-            group.append(f'  "{esc}",')
-        group.append("]")
-        text = text.rstrip() + "\n" + "\n".join(group) + "\n"
+            lines.append(f'  "{esc}",')
+        lines.append("]")
+        text = configedit.append_topics(text, ["\n".join(lines)])
+        n_terms = len(sug["terms"])
 
     cfg.write_text(text, encoding="utf-8")
-    return added_authors, len(sug["terms"])
+    return added_authors, n_terms
 
 
 def main():

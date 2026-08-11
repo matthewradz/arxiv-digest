@@ -355,14 +355,13 @@ def bootstrap_config():
 
 
 def read_feeds():
+    """Sections currently configured. Empty means the user has not chosen yet."""
     cfg = HOME / "config.toml"
     if not cfg.exists():
-        return ["cond-mat"]
+        return []
     m = re.search(r"^\s*feeds\s*=\s*\[([^\]]*)\]",
                   cfg.read_text(encoding="utf-8"), re.M)
-    if not m:
-        return ["cond-mat"]
-    return re.findall(r'"([^"]+)"', m.group(1)) or ["cond-mat"]
+    return re.findall(r'"([^"]+)"', m.group(1)) if m else []
 
 
 def write_feeds(feeds):

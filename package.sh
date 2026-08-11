@@ -19,10 +19,11 @@ ZIP="$OUTDIR/$NAME.zip"
 
 trap 'rm -rf "$(dirname "$STAGE")"' EXIT
 
-mkdir -p "$STAGE"/{digests,runs,logs}
+mkdir -p "$STAGE"/{digests,runs,logs,examples}
+cp "$DIR"/examples/*.toml "$STAGE/examples/" 2>/dev/null
 
 for f in fetch.py record.py pick.py learn.py app.py profile.py \
-         engine.py pipeline.py schedule.py _python.sh \
+         engine.py pipeline.py schedule.py configedit.py examples.py _python.sh \
          run.sh learn.sh run.bat learn.bat \
          install-app.sh package.sh test-fresh.sh \
          config.default.toml prompt.md learn_prompt.md README.md \
@@ -50,7 +51,8 @@ for need in $(grep -ho '\$DIR/_[a-z]*\.sh' "$DIR"/*.sh | sed 's|.*/||' | sort -u
   [[ -f "$STAGE/$need" ]] || missing="$missing $need"
 done
 for need in fetch.py pick.py profile.py record.py learn.py app.py \
-            engine.py pipeline.py schedule.py \
+            configedit.py examples.py \
+            engine.py pipeline.py schedule.py configedit.py examples.py \
             config.default.toml prompt.md learn_prompt.md \
             install_mac.command install_windows.bat; do
   [[ -f "$STAGE/$need" ]] || missing="$missing $need"
