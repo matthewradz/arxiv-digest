@@ -435,7 +435,7 @@ def run_profile(cli_args, timeout=300):
     try:
         proc = subprocess.run(
             [sys.executable, str(HOME / "profile.py")] + cli_args,
-            cwd=str(HOME), capture_output=True, text=True,
+            cwd=str(HOME), env=resolve_env(), capture_output=True, text=True,
             encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"lookup failed: {exc}"
@@ -912,9 +912,13 @@ peopleEl.addEventListener('click', async e=>{
       cand.innerHTML='<p class="explain">Nobody found'+(at?' at '+esc(at):'')+
         '. Try the full institution name, or clear the university box.</p>';return;}
     cand.innerHTML=r.matches.map((m,k)=>{
-      let where=esc(m.institution||'unknown');
-      if(m.via_institution&&m.last_known&&m.last_known!==m.institution)
-        where='affiliated with '+where+'; now listed at '+esc(m.last_known);
+      let where=esc(m.institution||'affiliation unknown');
+      if(m.school)
+        where=m.at_school
+          ? m.at_school+' of '+m.works+' papers at '+esc(m.school)
+          : 'no papers found at '+esc(m.school)+' — listed at '+
+            esc(m.last_known||'nowhere');
+      if(m.orcid) where+='  ·  orcid '+esc(m.orcid);
       return '<div class="match"><b>'+esc(m.name)+'</b>'+
         (m.exact?' <span class="tag">exact name</span>':'')+
         '<div class="meta">'+where+'</div>'+
@@ -1136,9 +1140,13 @@ peopleEl.addEventListener('click', async e=>{{
       cand.innerHTML='<p class="explain">Nobody found'+(at?' at '+esc(at):'')+
         '. Try the full institution name, or clear the university box.</p>';return;}}
     cand.innerHTML=r.matches.map((m,k)=>{{
-      let where=esc(m.institution||'unknown');
-      if(m.via_institution&&m.last_known&&m.last_known!==m.institution)
-        where='affiliated with '+where+'; now listed at '+esc(m.last_known);
+      let where=esc(m.institution||'affiliation unknown');
+      if(m.school)
+        where=m.at_school
+          ? m.at_school+' of '+m.works+' papers at '+esc(m.school)
+          : 'no papers found at '+esc(m.school)+' — listed at '+
+            esc(m.last_known||'nowhere');
+      if(m.orcid) where+='  ·  orcid '+esc(m.orcid);
       return '<div class="match"><b>'+esc(m.name)+'</b>'+
         (m.exact?' <span class="tag">exact name</span>':'')+
         '<div class="meta">'+where+'</div>'+

@@ -26,8 +26,9 @@ HOME = Path(__file__).resolve().parent
 # Run straight from a terminal or the scheduler there is no parent to set
 # PYTHONIOENCODING, and a Windows console encodes stdout as cp1252 - one Greek
 # letter in a title would end the run on a UnicodeEncodeError.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def say(*a):

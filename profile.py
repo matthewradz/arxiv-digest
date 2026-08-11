@@ -32,6 +32,15 @@ import configedit
 import fetch  # name_key / pretty_name, so matching agrees with the digest
 
 HOME = Path(__file__).resolve().parent
+
+# Researcher names are exactly where non-ASCII shows up - Vuletic is Vuletić in
+# OpenAlex - and a Windows console or pipe encodes as cp1252, which cannot hold
+# it. Without this, looking up half the people in physics ends in
+# UnicodeEncodeError.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 API = "https://api.openalex.org"
 # OpenAlex asks for a contact address so they can warn you before rate-limiting.
 MAILTO = "arxiv-digest@example.com"
@@ -66,59 +75,119 @@ def _norm(s):
     return re.sub(r"[^a-z ]", "", fetch.deaccent(s).lower()).strip()
 
 
+def works_at(author_id, inst_id, sample=50):
+    """
+    What this record did at that institution: (how many works, their topics).
+
+    The topics matter as much as the count. A record's own topic list is the
+    union of everyone merged into it, so the 'Qi Liu' that holds an MIT
+    physicist also advertises rheumatoid arthritis; the topics of just the
+    works at the school describe the person actually being looked for.
+    """
+    try:
+        page = get("works",
+                   filter=f"author.id:{author_id},institutions.id:{inst_id}",
+                   per_page=sample, select="topics")
+    except (urllib.error.URLError, TimeoutError):
+        return 0, []
+    counts = Counter()
+    for w in page.get("results", []):
+        for t in (w.get("topics") or [])[:3]:
+            counts[t["display_name"]] += 1
+    return ((page.get("meta") or {}).get("count", 0),
+            [t for t, _ in counts.most_common(8)])
+
+
 def find_authors(name, limit=8, institution=None):
     """
     Look someone up, optionally narrowed to an institution.
 
-    Two things make common names findable. First, the institution filter —
+    Three things make common names findable. First the institution filter —
     'Qi Liu' alone returns 3,760 people ranked by output, none of them the one
     you want. Second, exact-name-first ranking: OpenAlex's search is fuzzy and
     will happily return 'Enqi Liu' and 'Stephen Forrest' for 'Qi Liu', so an
     exact match on the display name is promoted above a more prolific near-miss.
+
+    Third, the school is counted rather than assumed. An OpenAlex record is not
+    reliably one person: 'Vladan Vuletic' at MIT is six records, the largest
+    holding 179 of its 382 works there and the rest one or two, while one
+    'Qi Liu' record merges an MIT physicist with a Chinese-medicine researcher
+    and a telecoms engineer, and reports the last of them as the affiliation.
+    So ask how many works each record really has at the school, rank on that,
+    and only label a record with the school once it is confirmed.
     """
-    params = {"search": name, "per_page": max(limit, 25)}
-    inst = None
-    if institution:
-        inst = find_institution(institution)
-        if inst:
+    wanted = _norm(name)
+    wanted_parts = set(wanted.split())
+    inst = find_institution(institution) if institution else None
+
+    def candidates(filter_by_school):
+        params = {"search": name, "per_page": max(limit, 25)}
+        if filter_by_school and inst:
             # NB: the working filter is affiliations.institution.id.
             # last_known_institutions.id silently returns zero results.
             params["filter"] = f"affiliations.institution.id:{inst['id']}"
-    data = get("authors", **params)
+        found = []
+        for a in get("authors", **params).get("results", []):
+            insts = a.get("last_known_institutions") or []
+            display = a["display_name"]
+            norm = _norm(display)
+            # OpenAlex search is fuzzy enough to return "Stephen R. Forrest"
+            # for "Qi Liu". Require a shared name part, or it is noise.
+            if not (wanted_parts & set(norm.split())):
+                continue
+            last_known = insts[0]["display_name"] if insts else ""
+            found.append({
+                "id": a["id"].rsplit("/", 1)[-1],
+                "name": display,
+                "works": a.get("works_count", 0),
+                "cited": a.get("cited_by_count", 0),
+                "institution": last_known,
+                "last_known": last_known,
+                "via_institution": bool(inst),
+                "orcid": (a.get("orcid") or "").rsplit("/", 1)[-1],
+                "topics": [t["display_name"]
+                           for t in (a.get("topics") or [])[:8]],
+                "exact": norm == wanted,
+                "at_school": 0,
+                "school": inst["name"] if inst else "",
+                "inst_id": inst["id"] if inst else "",
+            })
+        return found
 
-    wanted = _norm(name)
-    wanted_parts = set(wanted.split())
-    out = []
-    for a in data.get("results", []):
-        insts = a.get("last_known_institutions") or []
-        display = a["display_name"]
-        norm = _norm(display)
-        # OpenAlex search is fuzzy enough to return "Stephen R. Forrest" for
-        # "Qi Liu". Require at least one shared name part, or it is noise.
-        if not (wanted_parts & set(norm.split())):
-            continue
-        last_known = insts[0]["display_name"] if insts else ""
-        out.append({
-            "id": a["id"].rsplit("/", 1)[-1],
-            "name": display,
-            "works": a.get("works_count", 0),
-            "cited": a.get("cited_by_count", 0),
-            # When filtering by institution, show the one that was searched:
-            # OpenAlex's "last known" is often stale, so a person who really is
-            # at MIT can show up labelled with a former employer, which reads
-            # like the filter silently failed.
-            "institution": inst["name"] if inst else last_known,
-            "last_known": last_known,
-            "via_institution": bool(inst),
-            "topics": [t["display_name"] for t in (a.get("topics") or [])[:8]],
-            "exact": norm == wanted,
-        })
+    out = candidates(filter_by_school=True)
+    # The school filter drops anyone OpenAlex has filed under the wrong
+    # employer, which is most people early in a career - it lists Rubaiya
+    # Emran, who is at MIT, under "Harvard University Press". Returning
+    # nothing there is a dead end, so fall back to the name and say so.
+    if not out and inst:
+        out = candidates(filter_by_school=False)
+        for a in out:
+            a["inst_id"] = ""
+
+    # Name first, so a prolific near-miss cannot outrank the person asked for,
+    # then by how much of their work is genuinely at the school.
     out.sort(key=lambda a: (not a["exact"], -a["cited"]))
+    if inst:
+        for a in out[:limit]:
+            a["at_school"], topics_there = works_at(a["id"], inst["id"])
+            if a["at_school"]:
+                a["institution"] = inst["name"]
+                if topics_there:
+                    a["topics"] = topics_there
+        out = [a for a in out if a["at_school"]] or out[:limit]
+        out.sort(key=lambda a: (not a["exact"], -a["at_school"], -a["cited"]))
     return out[:limit]
 
 
-def fetch_corpus(author_id, max_works=400):
-    """Walk the author's works, collecting coauthors, topics and title words."""
+def fetch_corpus(author_id, max_works=400, inst_id=""):
+    """
+    Walk the author's works, collecting coauthors, topics and title words.
+
+    With a school, read only the works that name it. One OpenAlex record can
+    hold several people who share a name, and the profile built from all of
+    them is worse than none: the 'Qi Liu' record would contribute rheumatoid
+    arthritis and LDPC codes to a cold-atom reading list.
+    """
     coauthors = Counter()
     coauthor_display = {}
     topics = Counter()
@@ -127,7 +196,10 @@ def fetch_corpus(author_id, max_works=400):
     cursor = "*"
 
     while seen < max_works and cursor:
-        page = get("works", filter=f"author.id:{author_id}",
+        where = f"author.id:{author_id}"
+        if inst_id:
+            where += f",institutions.id:{inst_id}"
+        page = get("works", filter=where,
                    per_page=100, cursor=cursor,
                    select="title,topics,authorships")
         results = page.get("results", [])
@@ -443,12 +515,16 @@ def main():
                 print(f"--- {nm} ---")
                 for i, m in enumerate(matches):
                     star = " *exact name match*" if m.get("exact") else ""
-                    where = m["institution"] or "unknown"
-                    if m.get("via_institution"):
-                        where = f"affiliated with {where}"
-                        if m.get("last_known") and m["last_known"] != m["institution"]:
-                            where += f"; now listed at {m['last_known']}"
-                    print(f"[{i}] {m['name']} — {where}{star}"
+                    if m.get("school"):
+                        n = m.get("at_school", 0)
+                        where = (f"{n} of {m['works']} papers at {m['school']}"
+                                 if n else
+                                 f"no papers found at {m['school']}"
+                                 f" — listed at {m['last_known'] or 'nowhere'}")
+                    else:
+                        where = m["institution"] or "affiliation unknown"
+                    orcid = f"  orcid {m['orcid']}" if m.get("orcid") else ""
+                    print(f"[{i}] {m['name']} — {where}{star}{orcid}"
                           f"\n    {m['works']} papers, {m['cited']} citations"
                           f"\n    {', '.join(m['topics'][:4])}")
         return 0
@@ -457,11 +533,20 @@ def main():
     corpora = []
     for prof in profiles:
         if not args.json:
+            # Say what will actually be read: with a school it is only the
+            # works from there, which can be far fewer than the record holds.
+            n = prof["at_school"] if prof.get("inst_id") else prof["works"]
             print(f"Reading {prof['name']} "
                   f"({prof['institution'] or 'affiliation unknown'}) — "
-                  f"{prof['works']} papers...", file=sys.stderr)
+                  f"{n} papers...", file=sys.stderr)
+            if prof.get("inst_id") and n < 5:
+                print(f"  only {n} of this record's {prof['works']} papers are "
+                      f"at {prof['school']}, so the profile will be thin.\n"
+                      f"  Clear the school box to use the whole record, but "
+                      f"check it is one person first.", file=sys.stderr)
         try:
-            corpora.append(fetch_corpus(prof["id"], max_works=args.max_works))
+            corpora.append(fetch_corpus(prof["id"], max_works=args.max_works,
+                                        inst_id=prof.get("inst_id", "")))
         except (urllib.error.URLError, TimeoutError) as exc:
             print(f"Could not read the corpus: {exc}", file=sys.stderr)
             return 2
