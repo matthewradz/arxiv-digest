@@ -154,7 +154,8 @@ def save_pdf(pid, title, version=""):
         req = urllib.request.Request(
             url, headers={"User-Agent": "arxiv-digest/1.0 (personal reading list)"})
         tmp = target.with_suffix(".part")
-        with urllib.request.urlopen(req, timeout=120) as resp, \
+        with urllib.request.urlopen(req, timeout=120,
+                                    context=fetch.ssl_context()) as resp, \
                 tmp.open("wb") as fh:
             shutil.copyfileobj(resp, fh)
         if tmp.stat().st_size < 1000:      # an error page, not a paper

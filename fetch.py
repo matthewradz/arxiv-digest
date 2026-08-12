@@ -17,8 +17,11 @@ Usage:
 """
 
 import argparse
+import importlib
 import json
+import os
 import re
+import ssl
 import sys
 import tomllib
 import unicodedata
@@ -118,10 +121,45 @@ def name_key(name: str):
 # feed fetching / parsing
 # --------------------------------------------------------------------------
 
+_SSL_CONTEXT = None
+
+
+def ssl_context():
+    """
+    A verifying context that also trusts a shipped CA list, cached per run.
+
+    On Windows, Python verifies against a snapshot of the Windows certificate
+    store, and Windows only fetches a root the first time its *own* TLS stack
+    meets it. arxiv.org chains to Certainly Root R1, so on a machine that has
+    never been there, every fetch fails with CERTIFICATE_VERIFY_FAILED and
+    "arXiv unreachable" - then starts working later once something else visits
+    the site and the root gets cached, which makes it look intermittent.
+    Reproduced on both a conda and a stock python.org install here.
+
+    Adding a real CA bundle makes it deterministic, and costs no dependency:
+    conda ships certifi, and a python.org install has pip's copy of it. This
+    only ever adds roots to the system set, so verification never gets weaker,
+    and if no bundle is found the behaviour is exactly what it was.
+    """
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        _SSL_CONTEXT = ssl.create_default_context()
+        for module in ("certifi", "pip._vendor.certifi"):
+            try:
+                where = importlib.import_module(module).where()
+                if where and os.path.exists(where):
+                    _SSL_CONTEXT.load_verify_locations(cafile=where)
+                    break
+            except Exception:
+                continue
+    return _SSL_CONTEXT
+
+
 def fetch_feed(archive: str, timeout: int = 60) -> str:
     url = f"https://rss.arxiv.org/rss/{archive}"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout,
+                                context=ssl_context()) as resp:
         return resp.read().decode("utf-8", "replace")
 
 

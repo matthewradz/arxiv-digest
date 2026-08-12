@@ -70,6 +70,28 @@ def push_line(text):
         STATE["message"] = text
 
 
+def diagnosis(returncode):
+    """
+    The headline for a failed build.
+
+    STATE["message"] is whatever the pipeline printed last, which for a
+    multi-line failure is the least useful part of it: a missing model CLI
+    prints five lines of instructions and ends on "Either one works. Sign in
+    with the subscription, not an API key.", so that became the entire
+    explanation on screen. Pick the line that actually says what went wrong -
+    the full output is on the page underneath either way.
+    """
+    tells = ("no model cli", "could not fetch", "not installed", "exited non-zero",
+             "looked malformed", "no arxiv sections", "unreachable")
+    with LOCK:
+        lines = list(STATE["lines"])
+    for line in lines:
+        if any(t in line.lower() for t in tells):
+            return line.strip()
+    return (lines[-1].strip() if lines else
+            f"the pipeline exited with status {returncode}.")
+
+
 def build_thread(force=False):
     set_state(phase="building", message="Checking tonight's listing...",
               lines=[])
@@ -114,9 +136,7 @@ def build_thread(force=False):
                   message="Already up to date." if already
                           else "Digest ready.")
     else:
-        set_state(phase="error", date=latest,
-                  message=STATE["message"] or
-                          f"the pipeline exited with status {proc.returncode}.")
+        set_state(phase="error", date=latest, message=diagnosis(proc.returncode))
 
 
 def learn_thread():
@@ -850,6 +870,7 @@ PROFILE_PAGE = """
   <h1>Tune from a researcher</h1>
   <span class="sp"></span>
   <a class="btn" href="/">back to the digest</a>
+  <a class="btn" href="/setup">Setup</a>
 </div></header>
 <main>
 <p class="explain">Give a name and this reads that person's actual publication
@@ -1302,7 +1323,7 @@ def digest_page(date):
     footer = f"""<footer><div class="fbar">
   <span class="count" id="count">{progress}</span>
   <span class="sp"></span>
-  <a class="btn" href="/setup">Settings</a>
+  <a class="btn" href="/setup">Setup</a>
   <a class="btn" href="/profile">Tune from a researcher</a>
   <button class="act" data-act="learn">Retune from my picks</button>
   <button class="act" data-act="rebuild">Rebuild tonight</button>
