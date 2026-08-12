@@ -203,26 +203,35 @@ set /p "DESKTOP=" < "%TEMP%\_arxiv_desktop.txt"
 del "%TEMP%\_arxiv_desktop.txt" >nul 2>&1
 if not defined DESKTOP set "DESKTOP=%USERPROFILE%\Desktop"
 
+REM Also put it in the Start Menu, which is what makes Windows Search find
+REM it by name: a Desktop shortcut on its own is not indexed as an app.
+set "STARTMENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
+
 REM Build the shortcut from a generated .ps1 rather than an inline -Command:
 REM escaping quotes through cmd into PowerShell is the single most fragile
 REM thing in this script, and a temp file sidesteps it entirely.
 set "PS1=%TEMP%\arxiv_digest_shortcut.ps1"
 > "%PS1%" echo $w = New-Object -ComObject WScript.Shell
->> "%PS1%" echo $lnk = $w.CreateShortcut('%DESKTOP%\arXiv Digest.lnk')
->> "%PS1%" echo $lnk.TargetPath = '%PYW%'
->> "%PS1%" echo $lnk.Arguments = '"%DEST%\app.py"'
->> "%PS1%" echo $lnk.WorkingDirectory = '%DEST%'
->> "%PS1%" echo $lnk.Description = 'arXiv nightly digest'
->> "%PS1%" echo $lnk.Save()
+>> "%PS1%" echo foreach ($dir in @('%DESKTOP%','%STARTMENU%')) {
+>> "%PS1%" echo   if (-not $dir) { continue }
+>> "%PS1%" echo   if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir ^| Out-Null }
+>> "%PS1%" echo   $lnk = $w.CreateShortcut((Join-Path $dir 'arXiv Digest.lnk'))
+>> "%PS1%" echo   $lnk.TargetPath = '%PYW%'
+>> "%PS1%" echo   $lnk.Arguments = '"%DEST%\app.py"'
+>> "%PS1%" echo   $lnk.WorkingDirectory = '%DEST%'
+>> "%PS1%" echo   $lnk.Description = 'arXiv nightly digest'
+>> "%PS1%" echo   $lnk.Save()
+>> "%PS1%" echo }
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%PS1%" >nul 2>&1
 del "%PS1%" >nul 2>&1
 
 if exist "%DESKTOP%\arXiv Digest.lnk" (
-  echo   [ok] "arXiv Digest" shortcut is on your Desktop
+  echo   [ok] "arXiv Digest" is on your Desktop
 ) else (
   echo   [x] could not make a Desktop shortcut - no problem, start it with:
   echo       "%DEST%\arXiv Digest.bat"
 )
+if exist "%STARTMENU%\arXiv Digest.lnk" echo   [ok] and in the Start Menu - press Start and type "arxiv"
 echo.
 
 REM --- scheduling ------------------------------------------------------------

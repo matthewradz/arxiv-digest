@@ -102,14 +102,20 @@ LAUNCHER
 chmod +x "$APP/Contents/MacOS/arXivDigest"
 mkdir -p "$DIR/logs"
 
-# Nudge Finder/LaunchServices to notice the new bundle.
+# Register the bundle so it behaves like an installed application.
+# lsregister and Spotlight are separate: lsregister teaches Finder and
+# LaunchServices about the bundle, but without mdimport the app does not
+# appear when you search for it by name, which is how most people open
+# things. Both are best-effort - the app still runs if either is missing.
 touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$APP" >/dev/null 2>&1
+command -v mdimport >/dev/null 2>&1 && mdimport "$APP" >/dev/null 2>&1
 
 echo "Installed: $APP"
 echo
-echo "Double-click it to build and read tonight's digest."
-echo "Drag it to the Dock so it is one click away."
+echo
+echo "Open it from Applications, from Spotlight (Command-Space, type \"arXiv\"),"
+echo "or drag it to the Dock so it is one click away."
 echo
 echo "It opens in your browser, and quits by itself once you stop reading."

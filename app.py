@@ -1231,7 +1231,26 @@ document.getElementById('savedl').addEventListener('click',async ()=>{{
     : r.error;
 }});
 document.getElementById('finish').addEventListener('click',async e=>{{
+  // Save the ticked sections here too. "Save sections" is easy to walk past,
+  // and pressing this without it used to mark setup complete with no sections
+  // configured: the build then failed on an empty feed list, and because setup
+  // was flagged done the wizard stopped appearing - a two-click dead end.
+  const f=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
+  if(!f.length){{
+    document.getElementById('feedmsg').textContent =
+      'pick at least one arXiv section in step 3 first';
+    document.querySelector('.checks').scrollIntoView({{behavior:'smooth',
+                                                       block:'center'}});
+    return;
+  }}
   e.target.disabled=true; e.target.textContent='Starting...';
+  const saved=await jpost('/api/setup/feeds',{{feeds:f}});
+  if(!saved.ok){{
+    document.getElementById('feedmsg').textContent=saved.error;
+    e.target.disabled=false; e.target.textContent='Build my first digest';
+    return;
+  }}
+  document.getElementById('feedmsg').textContent='saved: '+saved.feeds.join(', ');
   await jpost('/api/setup/done',{{}});
   location.href='/?rebuild=1';
 }});
