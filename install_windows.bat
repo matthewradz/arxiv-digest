@@ -186,12 +186,21 @@ set "PYW=%PY:python.exe=pythonw.exe%"
 if /i "!PYW!"=="%PY%" set "PYW=%PY:py.exe=pyw.exe%"
 if not exist "!PYW!" for /f "delims=" %%W in ('where pythonw.exe 2^>nul') do set "PYW=%%W"
 if not exist "!PYW!" set "PYW=%PY%"
+REM powershell.exe by full path: it is not always on PATH, and without it
+REM the Desktop lookup and the shortcut below both silently do nothing.
+set "PWSH=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%PWSH%" set "PWSH=powershell"
+
 
 REM Ask Windows for the real Desktop folder rather than assuming
 REM %USERPROFILE%\Desktop - OneDrive Known Folder Move relocates it to
 REM %USERPROFILE%\OneDrive\Desktop, and checking the wrong path makes a
 REM shortcut that was created just fine look like it failed.
-for /f "delims=" %%D in ('powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"') do set "DESKTOP=%%D"
+REM Via a temp file again: a for /f whose command starts with a quoted path
+REM is mis-tokenized by cmd, the same trap as the version check above.
+"%PWSH%" -NoProfile -Command "[Environment]::GetFolderPath('Desktop')" > "%TEMP%\_arxiv_desktop.txt" 2>nul
+set /p "DESKTOP=" < "%TEMP%\_arxiv_desktop.txt"
+del "%TEMP%\_arxiv_desktop.txt" >nul 2>&1
 if not defined DESKTOP set "DESKTOP=%USERPROFILE%\Desktop"
 
 REM Build the shortcut from a generated .ps1 rather than an inline -Command:
@@ -205,13 +214,13 @@ set "PS1=%TEMP%\arxiv_digest_shortcut.ps1"
 >> "%PS1%" echo $lnk.WorkingDirectory = '%DEST%'
 >> "%PS1%" echo $lnk.Description = 'arXiv nightly digest'
 >> "%PS1%" echo $lnk.Save()
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%" >nul 2>&1
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%PS1%" >nul 2>&1
 del "%PS1%" >nul 2>&1
 
 if exist "%DESKTOP%\arXiv Digest.lnk" (
   echo   [ok] "arXiv Digest" shortcut is on your Desktop
 ) else (
-  echo   [!] could not make a Desktop shortcut - no problem, start it with:
+  echo   [x] could not make a Desktop shortcut - no problem, start it with:
   echo       "%DEST%\arXiv Digest.bat"
 )
 echo.
@@ -234,7 +243,7 @@ if /i "!ANS!"=="n" (
 ) else (
   "%PY%" "%DEST%\schedule.py" install 21 0
   if errorlevel 1 (
-    echo   [!] could not schedule it; the app still works
+    echo   [x] could not schedule it; the app still works
   ) else (
     echo   [ok] scheduled for 21:00, Monday to Friday
     echo       change the time:  "%PY%" "%DEST%\schedule.py" install 20 30
