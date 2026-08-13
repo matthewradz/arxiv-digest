@@ -1200,6 +1200,7 @@ peopleEl.addEventListener('click', async e=>{{
   }}
 }});
 document.getElementById('addrow').addEventListener('click',addRow);
+let applied=false;
 document.getElementById('useall').addEventListener('click', async e=>{{
   const people=chosen.filter(Boolean);
   if(!people.length) return;
@@ -1208,6 +1209,7 @@ document.getElementById('useall').addEventListener('click', async e=>{{
        ' — up to a minute'+(people.length>1?' each':'')+'...');
   const r=await jpost('/api/profile/apply',{{people}});
   e.target.disabled=false;
+  if(r.ok) applied=true;
   outEl.innerHTML='<p class="explain">'+(r.ok
     ? 'Added'+(people.length>1
         ? ' — phrases that appear in more than one of these corpora are weighted highest, so the digest favours what they have in common.'
@@ -1243,6 +1245,15 @@ document.getElementById('finish').addEventListener('click',async e=>{{
                                                        block:'center'}});
     return;
   }}
+  // Step 2 cannot be applied from here - reading the publication records
+  // takes up to a minute per person and belongs behind its own button - so
+  // say it rather than starting a build that quietly ignores the choice.
+  if(chosen.filter(Boolean).length && !applied){{
+    outEl.innerHTML='<p class="explain">Press "Use this person" in step 2 first,'+
+      ' or clear the choice — otherwise the digest is built without it.</p>';
+    outEl.scrollIntoView({{behavior:'smooth',block:'center'}});
+    return;
+  }}
   e.target.disabled=true; e.target.textContent='Starting...';
   const saved=await jpost('/api/setup/feeds',{{feeds:f}});
   if(!saved.ok){{
@@ -1251,6 +1262,13 @@ document.getElementById('finish').addEventListener('click',async e=>{{
     return;
   }}
   document.getElementById('feedmsg').textContent='saved: '+saved.feeds.join(', ');
+  // Step 4 has its own Save button too, and is just as easy to walk past.
+  const dl=document.getElementById('dldir').value.trim();
+  const dlr=await jpost('/api/setup/download-dir',{{path:dl}});
+  if(dlr.ok){{
+    document.getElementById('dlmsg').textContent = dlr.path
+      ? 'papers will be saved to '+dlr.path : 'not saving PDFs — links only';
+  }}
   await jpost('/api/setup/done',{{}});
   location.href='/?rebuild=1';
 }});
